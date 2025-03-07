@@ -2,7 +2,6 @@ CREATE TABLE BOOK (
     Isbn VARCHAR(13) PRIMARY KEY, -- Default to ISBN13
     Isbn10 VARCHAR(10) UNIQUE,
     Title VARCHAR(255) NOT NULL,
-    Author VARCHAR(255),
     Cover VARCHAR(255),
     Publisher VARCHAR(255),
     Pages INT CHECK (Pages > 0),
