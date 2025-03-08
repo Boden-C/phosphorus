@@ -1,7 +1,9 @@
 import pandas as pd
-import os, re
+import sys, os, re
 from pandas import DataFrame
 from typing import Dict, List, Tuple, Union
+from log_config import logger
+from validate import validate_all_data
 
 # Constants
 BOOKS_PATH = "./data/books.csv"
@@ -26,14 +28,12 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
         books["Pages"] = pd.to_numeric(books["Pages"], errors="coerce").fillna(0).astype(int)
         borrowers = pd.read_csv(borrowers_path, delimiter=",", dtype=str)
     except Exception as e:
-        print(f"Error reading input files: {e}")
+        logger.error(f"Error reading input files: {e}")
         raise
 
-    # Print both the datasets
-    print("Books DataFrame:")
-    print(books.head())
-    print("\nBorrowers DataFrame:")
-    print(borrowers.head())
+    # Log the dataset
+    logger.info(f"Books dataset imported: {books.shape}")
+    logger.info(f"Borrowers dataset imported: {borrowers.shape}")
 
     # NORMALIZE BOOKS TABLE
     # Rename columns to match schema
@@ -118,8 +118,11 @@ def main():
     try:
         book_table, authors_table, book_authors_table, borrowers_table = normalize_books(books_path, borrowers_path)
     except Exception as e:
-        print(f"Normalization failed: {e}")
+        logger.error(f"Error normalizing data: {e}")
         return
+
+    logger.info("Data normalization completed. Starting validation...")
+    validate_all_data(book_table, authors_table, book_authors_table, borrowers_table)
 
     try:
         # Save normalized tables to CSV files
@@ -127,9 +130,10 @@ def main():
         authors_table.to_csv("authors.csv", index=False)
         book_authors_table.to_csv("book_authors.csv", index=False)
         borrowers_table.to_csv("borrower.csv", index=False)
-        print("Successfully created normalized CSV files")
+        logger.info("Exported normalized data.")
     except Exception as e:
-        print(f"Error writing output files: {e}")
+        logger.error(f"Error saving normalized data: {e}")
+        return
 
 
 if __name__ == "__main__":
