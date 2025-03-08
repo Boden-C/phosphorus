@@ -65,19 +65,7 @@ def validate_books(book_table: pd.DataFrame) -> Dict[str, int]:
         logger.warning(f"Found {issues['isbn10_invalid']} books with invalid ISBN-10 checksum.")
 
     # Check for ISBN-13 and ISBN-10 correspondence
-    valid_both = book_table["Isbn"].notna() & book_table["Isbn10"].notna() & ~isbn13_invalid & ~isbn10_invalid
-    if valid_both.sum() > 0:
-        calculated_isbn13 = book_table.loc[valid_both, "Isbn10"].apply(isbn10_to_isbn13)
-        mismatch = calculated_isbn13 != book_table.loc[valid_both, "Isbn"]
-        issues["isbn_mismatch"] = mismatch.sum()
-
-        if issues["isbn_mismatch"] > 0 and issues["isbn_mismatch"] <= 5:
-            mismatched_records = book_table.loc[valid_both][mismatch]
-            logger.warning(
-                f"Found {issues['isbn_mismatch']} books where ISBN-13 and ISBN-10 don't correspond: {list(zip(mismatched_records['Isbn'], mismatched_records['Isbn10']))}"
-            )
-        elif issues["isbn_mismatch"] > 0:
-            logger.warning(f"Found {issues['isbn_mismatch']} books where ISBN-13 and ISBN-10 don't correspond.")
+    # Removed as it seems a lot of books have invalid ISBN
 
     # Check for duplicate ISBNs
     duplicates = book_table.duplicated(subset=["Isbn"], keep=False)

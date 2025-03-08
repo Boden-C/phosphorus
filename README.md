@@ -4,6 +4,10 @@
 
 It currently normalizes raw csv data from src/normalize/data, validates it, and outputs it.
 
+### BONUS
+
+Added proper logging and for the data values, see [validate.py](./src/normalize/validate.py)
+
 ## File Structure
 
 ```
