@@ -1,4 +1,4 @@
-# Project Phosphorus
+# Phosphorus
 
 ## Description
 
@@ -6,7 +6,7 @@ It currently normalizes raw csv data from src/normalize/data, validates it, and 
 
 ### BONUS
 
-Added proper logging and for the data values, see [validate.py](./src/normalize/validate.py)
+In addition to normalizing, also added proper logging and validation for the data values, see [validate.py](./src/normalize/validate.py)
 
 ## File Structure
 
