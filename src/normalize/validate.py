@@ -282,7 +282,7 @@ def validate_all_data(
         if total_issues == 0:
             logger.info("Validation complete. No issues found.")
         else:
-            logger.warning(f"Validation complete. Found {total_issues} total issues.")
+            logger.warning(f"Validation complete. Found {total_issues} potential issues.")
 
     except Exception as e:
         logger.error(f"Validation failed: {str(e)}")
