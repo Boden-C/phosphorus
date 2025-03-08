@@ -100,8 +100,8 @@ def validate_books(book_table: pd.DataFrame) -> Dict[str, int]:
 
                 logger.warning(
                     f"Column '{column}' has {missing_count} missing values in book_table:\n    "
-                    f"{'\n    '.join(titles_sample)}"
-                    f"{'and more...' if missing_count > 5 else ''}"
+                    + "\n    ".join(titles_sample)
+                    + (" and more..." if missing_count > 5 else "")
                 )
             else:
                 logger.warning(
