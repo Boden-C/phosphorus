@@ -11,13 +11,16 @@ BOOKS_PATH = os.path.join(BASE_DIR, "data", "books.csv")
 BORROWERS_PATH = os.path.join(BASE_DIR, "data", "borrowers.csv")
 
 
-def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
+def normalize_books(
+    books_path: str, borrowers_path: str, useAllUppercase: bool = True
+) -> Tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
     """
     Normalize books and borrowers data into 3NF according to the specified schema.
 
     Args:
         books_path: Path to the books CSV file.
         borrowers_path: Path to the borrowers CSV file.
+        useAllUppercase: If True, converts specific fields to title case.
 
     Returns:
         A tuple of DataFrames (book_table, authors_table, book_authors_table, borrowers_table)
@@ -36,19 +39,46 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
     logger.info(f"Books dataset imported: {books.shape}")
     logger.info(f"Borrowers dataset imported: {borrowers.shape}")
 
-    # NORMALIZE BOOKS TABLE
+    # Normalize books table
     books = books.rename(columns={"ISBN10": "Isbn10", "ISBN13": "Isbn"})
+    if useAllUppercase:
+        books["Title"] = books["Title"].str.upper()
+        logger.info("Converting names to uppercase.")
     book_table = books[["Isbn", "Title"]].copy()
 
-    # NORMALIZE AUTHORS
+    # Normalize authors
     author_dict: Dict[str, int] = {}
     author_id = 1
     book_author_pairs: List[Dict[str, Union[str, int]]] = []
+
+    pattern1 = r"(^|\s)([A-Z])\.([A-Z])\.(?!\s*[A-Z]\.)(\s|$)"
+    pattern2 = r"(^|\s)([A-Z])\.\s([A-Z])\.(?!\s*[A-Z]\.)(\s|$)"
+    pattern3 = r"(^|\s)([A-Z])\s([A-Z])(?!\s[A-Z](?:\s|$))(\s|$)"
 
     for _, row in books.iterrows():
         if pd.notna(row["Author"]):
             authors: List[str] = [author.strip() for author in row["Author"].split(",")]
             for author in authors:
+
+                # Case 1: "J.K." -> "JK"
+                if re.search(pattern1, author):
+                    new_author = re.sub(pattern1, r"\1\2\3\4", author)
+                    logger.info(f"Changing author format from '{author}' to '{new_author}'")
+                    author = new_author
+
+                # Case 2: "J. K." -> "JK"
+                elif re.search(pattern2, author):
+                    new_author = re.sub(pattern2, r"\1\2\3\4", author)
+                    logger.info(f"Changing author format from '{author}' to '{new_author}'")
+                    author = new_author
+
+                # Case 3: "J K" -> "JK"
+                elif re.search(pattern3, author):
+                    new_author = re.sub(pattern3, r"\1\2\3\4", author)
+                    logger.info(f"Changing author format from '{author}' to '{new_author}'")
+                    author = new_author
+
+                author = author.upper().strip() if useAllUppercase else author.strip()
                 if author not in author_dict:
                     author_dict[author] = author_id
                     author_id += 1
@@ -60,7 +90,7 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
     book_authors_table = DataFrame(book_author_pairs)
     book_authors_table = book_authors_table[["Author_id", "Isbn"]]
 
-    # NORMALIZE BORROWERS TABLE
+    # Normalize borrowers table
     borrowers = borrowers.rename(
         columns={
             "ID0000id": "Card_id",
@@ -76,6 +106,8 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
     )
 
     borrowers["Bname"] = borrowers["First_name"] + " " + borrowers["Last_name"]
+    if useAllUppercase:
+        borrowers["Bname"] = borrowers["Bname"].str.upper()
 
     required_borrower_columns = ["Card_id", "Ssn", "Bname", "Address", "Phone"]
     for col in required_borrower_columns:
