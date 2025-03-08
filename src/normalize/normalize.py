@@ -112,8 +112,8 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
 def main():
     # Set to file location directory
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    books_path = re.sub(r"^./", re.escape(base_dir) + "/", BOOKS_PATH)
-    borrowers_path = re.sub(r"^./", re.escape(base_dir) + "/", BORROWERS_PATH)
+    books_path = os.path.normpath(re.sub(r"^./", re.escape(base_dir) + "/", BOOKS_PATH))
+    borrowers_path = os.path.normpath(re.sub(r"^./", re.escape(base_dir) + "/", BORROWERS_PATH))
 
     try:
         book_table, authors_table, book_authors_table, borrowers_table = normalize_books(books_path, borrowers_path)
