@@ -19,7 +19,7 @@ src/
 │   ├── validate.py           # Data validation scripts
 ├── schema.sql                # Schema for future database
 .gitignore                    # Python gitignore
-output/                       # Normalized CSV files
+root csv files                # Normalized CSV files
 ```
 
 ## Files
