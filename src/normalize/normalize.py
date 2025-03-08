@@ -6,8 +6,9 @@ from log_config import logger
 from validate import validate_all_data
 
 # Constants
-BOOKS_PATH = "./data/books.csv"
-BORROWERS_PATH = "./data/borrowers.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BOOKS_PATH = os.path.join(BASE_DIR, "data", "books.csv")
+BORROWERS_PATH = os.path.join(BASE_DIR, "data", "borrowers.csv")
 
 
 def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
@@ -36,38 +37,30 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
     logger.info(f"Borrowers dataset imported: {borrowers.shape}")
 
     # NORMALIZE BOOKS TABLE
-    # Rename columns to match schema
     books = books.rename(columns={"ISBN10": "Isbn10", "ISBN13": "Isbn"})
-    book_table = books[["Isbn", "Isbn10", "Title", "Cover", "Publisher", "Pages"]].copy()
+    book_table = books[["Isbn", "Title"]].copy()
 
     # NORMALIZE AUTHORS
     author_dict: Dict[str, int] = {}
     author_id = 1
     book_author_pairs: List[Dict[str, Union[str, int]]] = []
 
-    # Process authors
     for _, row in books.iterrows():
         if pd.notna(row["Author"]):
-            # Split authors by comma and handle potential whitespace
             authors: List[str] = [author.strip() for author in row["Author"].split(",")]
             for author in authors:
-                # Add new author if not seen before
                 if author not in author_dict:
                     author_dict[author] = author_id
                     author_id += 1
-                # Add book-author relationship
                 book_author_pairs.append({"Isbn": row["Isbn"], "Author_id": author_dict[author]})
 
-    # Create authors table from collected data
     authors_table = DataFrame({"Author_id": list(author_dict.values()), "Name": list(author_dict.keys())})
     authors_table = authors_table[["Author_id", "Name"]]
 
-    # Create book_authors junction table
     book_authors_table = DataFrame(book_author_pairs)
     book_authors_table = book_authors_table[["Author_id", "Isbn"]]
 
     # NORMALIZE BORROWERS TABLE
-    # Rename columns to match schema
     borrowers = borrowers.rename(
         columns={
             "ID0000id": "Card_id",
@@ -82,41 +75,21 @@ def normalize_books(books_path: str, borrowers_path: str) -> Tuple[DataFrame, Da
         }
     )
 
-    # Combine first and last name for Bname
     borrowers["Bname"] = borrowers["First_name"] + " " + borrowers["Last_name"]
 
-    # Ensure all schema columns exist
-    required_borrower_columns = [
-        "Card_id",
-        "Ssn",
-        "Bname",
-        "First_name",
-        "Last_name",
-        "Email",
-        "Address",
-        "City",
-        "State",
-        "Phone",
-    ]
-
+    required_borrower_columns = ["Card_id", "Ssn", "Bname", "Address", "Phone"]
     for col in required_borrower_columns:
         if col not in borrowers.columns:
             borrowers[col] = ""
 
-    # Create borrowers table with schema columns
     borrowers_table = borrowers[required_borrower_columns].copy()
 
     return book_table, authors_table, book_authors_table, borrowers_table
 
 
 def main():
-    # Set to file location directory
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    books_path = os.path.normpath(re.sub(r"^./", re.escape(base_dir) + "/", BOOKS_PATH))
-    borrowers_path = os.path.normpath(re.sub(r"^./", re.escape(base_dir) + "/", BORROWERS_PATH))
-
     try:
-        book_table, authors_table, book_authors_table, borrowers_table = normalize_books(books_path, borrowers_path)
+        book_table, authors_table, book_authors_table, borrowers_table = normalize_books(BOOKS_PATH, BORROWERS_PATH)
     except Exception as e:
         logger.error(f"Error normalizing data: {e}")
         return
