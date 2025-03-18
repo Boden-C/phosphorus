@@ -51,39 +51,24 @@ def normalize_books(
     author_id = 1
     book_author_pairs: List[Dict[str, Union[str, int]]] = []
 
-    pattern1 = r"(^|\s)([A-Z])\.([A-Z])\.(?!\s*[A-Z]\.)(\s|$)"
-    pattern2 = r"(^|\s)([A-Z])\.\s([A-Z])\.(?!\s*[A-Z]\.)(\s|$)"
-    pattern3 = r"(^|\s)([A-Z])\s([A-Z])(?!\s[A-Z](?:\s|$))(\s|$)"
-
     for _, row in books.iterrows():
         if pd.notna(row["Author"]):
+            # Split multiple authors by comma
             authors: List[str] = [author.strip() for author in row["Author"].split(",")]
+
             for author in authors:
+                # Normalize the author name
+                normalized_author = normalize_author(author, useAllUppercase)
 
-                # Case 1: "J.K." -> "JK"
-                if re.search(pattern1, author):
-                    new_author = re.sub(pattern1, r"\1\2\3\4", author)
-                    logger.info(f"Changing author format from '{author}' to '{new_author}'")
-                    author = new_author
-
-                # Case 2: "J. K." -> "JK"
-                elif re.search(pattern2, author):
-                    new_author = re.sub(pattern2, r"\1\2\3\4", author)
-                    logger.info(f"Changing author format from '{author}' to '{new_author}'")
-                    author = new_author
-
-                # Case 3: "J K" -> "JK"
-                elif re.search(pattern3, author):
-                    new_author = re.sub(pattern3, r"\1\2\3\4", author)
-                    logger.info(f"Changing author format from '{author}' to '{new_author}'")
-                    author = new_author
-
-                author = author.upper().strip() if useAllUppercase else author.strip()
-                if author not in author_dict:
-                    author_dict[author] = author_id
+                # Add to author dictionary if not already present
+                if normalized_author not in author_dict:
+                    author_dict[normalized_author] = author_id
                     author_id += 1
-                book_author_pairs.append({"Isbn": row["Isbn"], "Author_id": author_dict[author]})
 
+                # Create book-author pair
+                book_author_pairs.append({"Isbn": row["Isbn"], "Author_id": author_dict[normalized_author]})
+
+    print("")
     authors_table = DataFrame({"Author_id": list(author_dict.values()), "Name": list(author_dict.keys())})
     authors_table = authors_table[["Author_id", "Name"]]
 
@@ -117,6 +102,42 @@ def normalize_books(
     borrowers_table = borrowers[required_borrower_columns].copy()
 
     return book_table, authors_table, book_authors_table, borrowers_table
+
+
+def normalize_author(author: str, uppercase: bool = False) -> str:
+    """
+    Normalize author names by:
+    1. Removing all periods
+    2. Removing spaces between single capital letters (J K -> JK, J. K. -> JK)
+
+    Args:
+        author: Author name string to normalize
+        uppercase: Whether to convert the result to uppercase
+
+    Returns:
+        Normalized author name
+    """
+    original = author
+
+    # Remove all periods
+    author = author.replace(".", "")
+
+    # Find patterns of single capital letters separated by spaces and join them
+    pattern = r"\b((?:[A-Z]\s)+[A-Z])\b"
+    matches = re.findall(pattern, author)
+    for match in matches:
+        no_spaces = match.replace(" ", "")
+        author = author.replace(match, no_spaces)
+
+    # Log if changes were made
+    if original != author:
+        print(f"; {original} -> {author}", end="")
+
+    # Apply uppercase if required
+    if uppercase:
+        author = author.upper()
+
+    return author.strip()
 
 
 def main():
