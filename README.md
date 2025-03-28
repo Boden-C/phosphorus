@@ -6,7 +6,7 @@ It currently normalizes raw csv data from src/normalize/data, validates it, and 
 
 ### BONUS
 
-In addition to normalizing, also added proper logging and validation for the data values, see [validate.py](./src/normalize/validate.py)
+In addition to normalizing, also added proper logging, validation, and parsing for the data values, see [validate.py](./src/normalize/validate.py)
 
 ## File Structure
 
@@ -30,6 +30,7 @@ root csv files                # Normalized CSV files
 * Transforms data to conform to a normalized schema
 * Calls `validate.py` to ensure data integrity
 * Outputs the files
+* It also standardizes the author name initials `J K Rowling` -> `JK Rowling`
 
 ### `validate.py`
 
