@@ -1,13 +1,7 @@
 import pandas as pd
 import re
 from typing import Dict
-from log_config import logger
-
-
-import pandas as pd
-import re
-from typing import Dict
-from log_config import logger
+from logger import log
 
 
 def is_valid_isbn13(isbn: str) -> bool:
@@ -28,14 +22,14 @@ def validate_books(book_table: pd.DataFrame) -> Dict[str, int]:
     issues["duplicate_isbn"] = duplicates.sum()
 
     if issues["duplicate_isbn"] > 0:
-        logger.warning(f"Found {issues['duplicate_isbn']} duplicate ISBN entries.")
+        log.warning(f"Found {issues['duplicate_isbn']} duplicate ISBN entries.")
 
     # Check ISBN-13 format and checksum
     isbn13_invalid = book_table["Isbn"].apply(lambda x: not is_valid_isbn13(str(x)) if pd.notna(x) else False)
     issues["isbn_invalid"] = isbn13_invalid.sum()
 
     if issues["isbn_invalid"] > 0:
-        logger.warning(f"Found {issues['isbn_invalid']} books with invalid ISBN-13 checksum.")
+        log.warning(f"Found {issues['isbn_invalid']} books with invalid ISBN-13 checksum.")
 
     # Check if titles are in upper case
     if "Title" in book_table.columns:
@@ -43,7 +37,7 @@ def validate_books(book_table: pd.DataFrame) -> Dict[str, int]:
         issues["non_upper_case_titles"] = non_upper_case.sum()
 
         if issues["non_upper_case_titles"] > 0:
-            logger.warning(f"Found {issues['non_upper_case_titles']} books with non-upper-case titles.")
+            log.warning(f"Found {issues['non_upper_case_titles']} books with non-upper-case titles.")
 
     return issues
 
@@ -57,21 +51,21 @@ def validate_authors(authors_table: pd.DataFrame, book_authors_table: pd.DataFra
     issues["duplicate_authors"] = duplicates.sum()
 
     if issues["duplicate_authors"] > 0:
-        logger.warning(f"Found {issues['duplicate_authors']} duplicate author entries.")
+        log.warning(f"Found {issues['duplicate_authors']} duplicate author entries.")
 
     # Check for empty author names
     empty_names = authors_table["Name"].isna() | (authors_table["Name"] == "")
     issues["empty_author_names"] = empty_names.sum()
 
     if issues["empty_author_names"] > 0:
-        logger.warning(f"Found {issues['empty_author_names']} authors with empty names.")
+        log.warning(f"Found {issues['empty_author_names']} authors with empty names.")
 
     # Check if author names are in upper case
     non_upper_case = authors_table["Name"].apply(lambda x: x != x.upper() if pd.notna(x) else False)
     issues["non_upper_case_authors"] = non_upper_case.sum()
 
     if issues["non_upper_case_authors"] > 0:
-        logger.warning(f"Found {issues['non_upper_case_authors']} authors with non-upper-case names.")
+        log.warning(f"Found {issues['non_upper_case_authors']} authors with non-upper-case names.")
 
     return issues
 
@@ -85,7 +79,7 @@ def validate_borrowers(borrowers_table: pd.DataFrame) -> Dict[str, int]:
     issues["duplicate_ssn"] = duplicate_ssn.sum()
 
     if issues["duplicate_ssn"] > 0:
-        logger.warning(f"Found {issues['duplicate_ssn']} duplicate SSN entries.")
+        log.warning(f"Found {issues['duplicate_ssn']} duplicate SSN entries.")
 
     # Check for empty required fields
     required_fields = ["Card_id", "Bname", "Address", "Phone"]
@@ -94,14 +88,14 @@ def validate_borrowers(borrowers_table: pd.DataFrame) -> Dict[str, int]:
         empty_count = empty.sum()
         if empty_count > 0:
             issues["empty_fields"] += empty_count
-            logger.warning(f"Found {empty_count} borrowers with empty {field}.")
+            log.warning(f"Found {empty_count} borrowers with empty {field}.")
 
     # Check if borrower names are in upper case
     non_upper_case = borrowers_table["Bname"].apply(lambda x: x != x.upper() if pd.notna(x) else False)
     issues["non_upper_case_bnames"] = non_upper_case.sum()
 
     if issues["non_upper_case_bnames"] > 0:
-        logger.warning(f"Found {issues['non_upper_case_bnames']} borrowers with non-upper-case names.")
+        log.warning(f"Found {issues['non_upper_case_bnames']} borrowers with non-upper-case names.")
 
     return issues
 
@@ -133,12 +127,12 @@ def validate_all_data(
 
         total_issues = sum(sum(table.values()) for table in results.values())
         if total_issues == 0:
-            logger.info("Validation complete. No issues found.")
+            log.info("Validation complete. No issues found.")
         else:
-            logger.warning(f"Validation complete. Found {total_issues} potential issues.")
+            log.warning(f"Validation complete. Found {total_issues} potential issues.")
 
     except Exception as e:
-        logger.error(f"Validation failed: {str(e)}")
+        log.error(f"Validation failed: {str(e)}")
         raise
 
     return results
@@ -155,4 +149,4 @@ if __name__ == "__main__":
 
         results = validate_all_data(book_table, authors_table, book_authors_table, borrowers_table)
     except Exception as e:
-        logger.error(f"Validation script failed: {str(e)}")
+        log.error(f"Validation script failed: {str(e)}")

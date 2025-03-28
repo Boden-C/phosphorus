@@ -2,7 +2,7 @@ import pandas as pd
 import sys, os, re
 from pandas import DataFrame
 from typing import Dict, List, Tuple, Union
-from log_config import logger
+from logger import log
 from validate import validate_all_data
 
 # Constants
@@ -32,18 +32,18 @@ def normalize_books(
         books["Pages"] = pd.to_numeric(books["Pages"], errors="coerce").fillna(0).astype(int)
         borrowers = pd.read_csv(borrowers_path, delimiter=",", dtype=str)
     except Exception as e:
-        logger.error(f"Error reading input files: {e}")
+        log.error(f"Error reading input files: {e}")
         raise
 
     # Log the dataset
-    logger.info(f"Books dataset imported: {books.shape}")
-    logger.info(f"Borrowers dataset imported: {borrowers.shape}")
+    log.info(f"Books dataset imported: {books.shape}")
+    log.info(f"Borrowers dataset imported: {borrowers.shape}")
 
     # Normalize books table
     books = books.rename(columns={"ISBN10": "Isbn10", "ISBN13": "Isbn"})
     if useAllUppercase:
         books["Title"] = books["Title"].str.upper()
-        logger.info("Converting names to uppercase.")
+        log.info("Converting names to uppercase.")
     book_table = books[["Isbn", "Title"]].copy()
 
     # Normalize authors
@@ -144,10 +144,10 @@ def main():
     try:
         book_table, authors_table, book_authors_table, borrowers_table = normalize_books(BOOKS_PATH, BORROWERS_PATH)
     except Exception as e:
-        logger.error(f"Error normalizing data: {e}")
+        log.error(f"Error normalizing data: {e}")
         return
 
-    logger.info("Data normalization completed. Starting validation...")
+    log.info("Data normalization completed. Starting validation...")
     validate_all_data(book_table, authors_table, book_authors_table, borrowers_table)
 
     try:
@@ -156,9 +156,9 @@ def main():
         authors_table.to_csv("authors.csv", index=False)
         book_authors_table.to_csv("book_authors.csv", index=False)
         borrowers_table.to_csv("borrower.csv", index=False)
-        logger.info("Exported normalized data.")
+        log.info("Exported normalized data.")
     except Exception as e:
-        logger.error(f"Error saving normalized data: {e}")
+        log.error(f"Error saving normalized data: {e}")
         return
 
 

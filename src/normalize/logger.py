@@ -31,4 +31,4 @@ def setup_logger():
 
 
 # Create a global logger instance
-logger = setup_logger()
+log = setup_logger()
