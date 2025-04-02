@@ -122,4 +122,5 @@ To run server;
 python manage.py runserver
 user - admin
 pass - admin123
+http://127.0.0.1:8000/admin
 ```
