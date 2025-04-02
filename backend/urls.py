@@ -16,7 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from borrower.views import create_borrower
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/create-borrower/', create_borrower),
 ]

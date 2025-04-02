@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'borrower',
 ]
 
 MIDDLEWARE = [
@@ -78,7 +79,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "phosphorus_db",
         "USER": "phosphorus_user",
-        "PASSWORD": "",
+        "PASSWORD": "Gaurang@2004",
         "HOST": "localhost",
         "PORT": "3306",
         "OPTIONS": {
