@@ -2,11 +2,7 @@
 
 ## Description
 
-It currently normalizes raw csv data from src/normalize/data, validates it, and outputs it.
-
-### BONUS
-
-In addition to normalizing, also added proper logging, validation, and parsing for the data values, see [validate.py](./src/normalize/validate.py)
+Full Django/MySQL Project
 
 ## File Structure
 
@@ -44,9 +40,11 @@ root csv files                # Normalized CSV files
 
 ## Installation & Setup
 
-1. Clone the repository:
+1. Make sure you have installed Python 3, MySQL, and have cloned the repository:
 
    ```sh
+   python --version
+   mysql --version
    git clone https://github.com/Boden-C/phosphorus
    cd phosphorus
    ```
@@ -61,6 +59,31 @@ root csv files                # Normalized CSV files
 
    ```sh
    pip install -r requirements.txt
+   ```
+4. Enter into MySQL:
+
+   ```sh
+   mysql -u root  # -p if you have password
+   ```
+5. Create the database and the user:
+
+   ```sql
+   CREATE DATABASE IF NOT EXISTS phosphorus_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'phosphorus_user'@'localhost' IDENTIFIED BY '';  -- Default to empty password
+   GRANT ALL PRIVILEGES ON phosphorus_db.* TO 'phosphorus_user'@'localhost';
+   FLUSH PRIVILEGES;
+   exit
+   ```
+6. Setup the database:
+
+   ```sh
+   mysql -u phosphorus_user phosphorus_db < database/schema.sql
+   Get-Content database/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
+   ```
+
+7. Update and confirm Django [settings.py](./api/settings.py):
+   ```sh
+   python manage.py migrate
    ```
 
 ## Running the Scripts
