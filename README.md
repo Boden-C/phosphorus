@@ -103,8 +103,23 @@ python src/normalize/validate.py
 After running `normalize.py`, the cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv` in the project folder.
 
 
+Before load_borrowers:
+
+```sh
+python setup_test_admin.py
+```
+
+
 To run the load_borrowers:
 
 ```sh
 python load_borrowers.py
+```
+
+To run server;
+
+```sh
+python manage.py runserver
+user - admin
+pass - admin123
 ```
