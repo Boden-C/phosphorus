@@ -42,7 +42,7 @@ def validate_books(book_table: pd.DataFrame) -> Dict[str, int]:
     return issues
 
 
-def validate_authors(authors_table: pd.DataFrame, book_authors_table: pd.DataFrame) -> Dict[str, int]:
+def validate_authors(authors_table: pd.DataFrame) -> Dict[str, int]:
     """Validate the authors table data."""
     issues = {"duplicate_authors": 0, "empty_author_names": 0, "non_upper_case_authors": 0}
 
@@ -66,6 +66,34 @@ def validate_authors(authors_table: pd.DataFrame, book_authors_table: pd.DataFra
 
     if issues["non_upper_case_authors"] > 0:
         log.warning(f"Found {issues['non_upper_case_authors']} authors with non-upper-case names.")
+
+    return issues
+
+
+def validate_book_authors(book_authors_table: pd.DataFrame) -> Dict[str, int]:
+    """Validate the book-authors table data."""
+    issues = {"duplicate_entries": 0, "missing_isbn": 0, "missing_author_id": 0}
+
+    # Check for duplicate entries
+    duplicates = book_authors_table.duplicated(subset=["Isbn", "Author_id"], keep=False)
+    issues["duplicate_entries"] = duplicates.sum()
+
+    if issues["duplicate_entries"] > 0:
+        log.warning(f"Found {issues['duplicate_entries']} duplicate book-author entries.")
+
+    # Check for missing ISBNs
+    missing_isbn = book_authors_table["Isbn"].isna() | (book_authors_table["Isbn"] == "")
+    issues["missing_isbn"] = missing_isbn.sum()
+
+    if issues["missing_isbn"] > 0:
+        log.warning(f"Found {issues['missing_isbn']} book-author entries with missing ISBN.")
+
+    # Check for missing author IDs
+    missing_author_id = book_authors_table["Author_id"].isna() | (book_authors_table["Author_id"] == "")
+    issues["missing_author_id"] = missing_author_id.sum()
+
+    if issues["missing_author_id"] > 0:
+        log.warning(f"Found {issues['missing_author_id']} book-author entries with missing author ID.")
 
     return issues
 
@@ -122,7 +150,8 @@ def validate_all_data(
 
     try:
         results["books"] = validate_books(book_table)
-        results["authors"] = validate_authors(authors_table, book_authors_table)
+        results["authors"] = validate_authors(authors_table)
+        results["book_authors"] = validate_book_authors(book_authors_table)
         results["borrowers"] = validate_borrowers(borrowers_table)
 
         total_issues = sum(sum(table.values()) for table in results.values())
@@ -142,10 +171,10 @@ if __name__ == "__main__":
     # Example usage when script is run directly
     try:
         # Load data from files
-        book_table = pd.read_csv("book.csv")
-        authors_table = pd.read_csv("authors.csv")
-        book_authors_table = pd.read_csv("book_authors.csv")
-        borrowers_table = pd.read_csv("borrower.csv")
+        book_table = pd.read_csv("setup/output/book.csv")
+        authors_table = pd.read_csv("setup/output/authors.csv")
+        book_authors_table = pd.read_csv("setup/output/book_authors.csv")
+        borrowers_table = pd.read_csv("setup/output/borrower.csv")
 
         results = validate_all_data(book_table, authors_table, book_authors_table, borrowers_table)
     except Exception as e:
