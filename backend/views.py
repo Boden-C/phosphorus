@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
 import json
-from api import create_borrower
+from backend.api import create_borrower
 
 
 @csrf_exempt

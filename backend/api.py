@@ -15,20 +15,36 @@ from typing import Optional, Tuple
 from django.db import connection
 
 
-def create_borrower(ssn: str, bname: str, address: str, phone: str = None, email: str = None) -> Optional[Tuple]:
+def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Optional[Tuple]:
     """
-    Create a new borrower in the database.
-
-    Args:
-        ssn (str): The social security number of the borrower.
-        bname (str): The name of the borrower.
-        address (str): The address of the borrower.
-        phone (str, optional): The phone number of the borrower. Defaults to None.
-        email (str, optional): The email address of the borrower. Defaults to None.
+    Create a new borrower using raw SQL.
 
     Returns:
-        Optional[Tuple]: A tuple containing the borrower if created successfully.
-
-    Raises:
-        Exception: If there is an error while creating the borrower.
+        Tuple: (card_no, bname) if created successfully
+        None: if duplicate SSN or error
     """
+    try:
+        with connection.cursor() as cursor:
+            # Check for duplicate SSN
+            cursor.execute("SELECT card_id FROM borrower WHERE ssn = %s", [ssn])
+            if cursor.fetchone():
+                print(f"Borrower with SSN {ssn} already exists.")
+                return None
+
+            # Generate new card_id
+            cursor.execute("SELECT MAX(CAST(card_id AS UNSIGNED)) FROM borrower")
+            result = cursor.fetchone()
+            next_card_id = (int(result[0]) + 1) if result[0] else 10000000
+            card_id_str = str(next_card_id).zfill(8)
+
+            # Insert new borrower
+            cursor.execute("""
+                INSERT INTO borrower (card_id, ssn, bname, address, phone)
+                VALUES (%s, %s, %s, %s, %s)
+            """, [card_id_str, ssn, bname, address, phone])
+
+            return (card_id_str, bname)
+
+    except Exception as e:
+        print(f"Error creating borrower: {e}")
+        return None

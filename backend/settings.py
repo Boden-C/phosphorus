@@ -79,7 +79,6 @@ DATABASES = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "phosphorus_db",
         "USER": "phosphorus_user",
-        "PASSWORD": "Gaurang@2004",
         "HOST": "localhost",
         "PORT": "3306",
         "OPTIONS": {
