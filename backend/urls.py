@@ -14,11 +14,12 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path
-from borrower.views import create_borrower
+from views import create_borrower
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/create-borrower/', create_borrower),
+    path("admin/", admin.site.urls),
+    path("api/create-borrower/", create_borrower),
 ]
