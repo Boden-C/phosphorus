@@ -7,15 +7,20 @@ Full Django/MySQL Project
 ## File Structure
 
 ```
-src/
-├── normalize/
-│   ├── data/                 # Raw CSV files
-│   ├── log_config.py         # Logger setup
-│   ├── normalize.py          # Data normalization scripts
-│   ├── validate.py           # Data validation scripts
-├── schema.sql                # Schema for future database
-.gitignore                    # Python gitignore
-root csv files                # Normalized CSV files
+root/
+  backend/          # Backend Django application
+    api.py          # Contains the database interaction methods
+    urls.py         # Defines the URL patterns for the HTTP endpoints
+    views.py        # Defines the HTTP endpoints
+  setup/    
+    normalize/    
+      data/         # Directory to hold raw input data for normalization
+      output/       # Directory to store the normalized output data
+    normalize.py    # Script responsible for data normalization
+    validate.py     # Script responsible for data validation
+  manage.py         # Django administrative script
+  main.py           # Main entry point for an example usage of the API
+  setup.py          # Script for setting up the application environment and dependencies
 ```
 
 ## Files
@@ -80,8 +85,8 @@ root csv files                # Normalized CSV files
    mysql -u phosphorus_user phosphorus_db < database/schema.sql
    Get-Content database/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
    ```
-
 7. Update and confirm Django [settings.py](./api/settings.py):
+
    ```sh
    python manage.py migrate
    ```
@@ -102,13 +107,11 @@ python src/normalize/validate.py
 
 After running `normalize.py`, the cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv` in the project folder.
 
-
 Before load_borrowers:
 
 ```sh
 python setup_test_admin.py
 ```
-
 
 To run the load_borrowers:
 

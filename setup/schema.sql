@@ -29,9 +29,7 @@ CREATE TABLE BORROWER (
     Ssn VARCHAR(20) UNIQUE NOT NULL,
     Bname VARCHAR(100) NOT NULL, -- Kept to maintain original schema
     Email VARCHAR(100) UNIQUE,
-    Address VARCHAR(255),
-    City VARCHAR(100),
-    State CHAR(2),
+    Address VARCHAR(255), -- Also contains City and State to maintain original schema
     Phone VARCHAR(20),
     CHECK (Email LIKE '%@%.%')
 );
