@@ -53,20 +53,19 @@ def normalize_books(
 
     for _, row in books.iterrows():
         if pd.notna(row["Author"]):
-            # Split multiple authors by comma
             authors: List[str] = [author.strip() for author in row["Author"].split(",")]
+            processed_authors = set()
 
             for author in authors:
-                # Normalize the author name
                 normalized_author = normalize_author(author, useAllUppercase)
 
-                # Add to author dictionary if not already present
                 if normalized_author not in author_dict:
                     author_dict[normalized_author] = author_id
                     author_id += 1
 
-                # Create book-author pair
-                book_author_pairs.append({"Isbn": row["Isbn"], "Author_id": author_dict[normalized_author]})
+                if normalized_author not in processed_authors:
+                    book_author_pairs.append({"Isbn": row["Isbn"], "Author_id": author_dict[normalized_author]})
+                    processed_authors.add(normalized_author)
 
     print("")
     authors_table = DataFrame({"Author_id": list(author_dict.values()), "Name": list(author_dict.keys())})
@@ -152,10 +151,10 @@ def main():
 
     try:
         # Save normalized tables to CSV files
-        book_table.to_csv("book.csv", index=False)
-        authors_table.to_csv("authors.csv", index=False)
-        book_authors_table.to_csv("book_authors.csv", index=False)
-        borrowers_table.to_csv("borrower.csv", index=False)
+        book_table.to_csv("setup/output/book.csv", index=False)
+        authors_table.to_csv("setup/output/authors.csv", index=False)
+        book_authors_table.to_csv("setup/output/book_authors.csv", index=False)
+        borrowers_table.to_csv("setup/output/borrower.csv", index=False)
         log.info("Exported normalized data.")
     except Exception as e:
         log.error(f"Error saving normalized data: {e}")

@@ -10,10 +10,11 @@ Full Django/MySQL Project
 root/
   backend/          # Backend Django application
     api.py          # Contains the database interaction methods
+    settings.py     # Config for the Django backend settings
     urls.py         # Defines the URL patterns for the HTTP endpoints
     views.py        # Defines the HTTP endpoints
-  setup/    
-    normalize/    
+  setup/  
+    normalize/  
       data/         # Directory to hold raw input data for normalization
       output/       # Directory to store the normalized output data
     normalize.py    # Script responsible for data normalization
@@ -82,8 +83,8 @@ root/
 6. Setup the database:
 
    ```sh
-   mysql -u phosphorus_user phosphorus_db < database/schema.sql
-   Get-Content database/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
+   mysql -u phosphorus_user phosphorus_db < setup/schema.sql
+   Get-Content setup/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
    ```
 7. Update and confirm Django [settings.py](./api/settings.py):
 
