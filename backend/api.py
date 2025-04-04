@@ -14,7 +14,7 @@ Contains:
  - create_author(...)
 """
 
-from typing import Tuple
+from typing import List, Tuple
 from django.db import connection
 from django.core.exceptions import ValidationError
 
@@ -27,8 +27,9 @@ def checkout(user_id: str, isbn: str) -> str:
             """
             SELECT COUNT(*) FROM BOOK_LOANS
             WHERE card_id = %s AND date_in IS NULL;
-            """
-        ), [user_id]
+            """,
+            [user_id],
+        )
         active_loans = cursor.fetchone()[0]
 
         if active_loans >= 3:
@@ -39,8 +40,9 @@ def checkout(user_id: str, isbn: str) -> str:
             """
             SELECT COALESCE(SUM(fine_amt), 0) FROM FINES
             WHERE card_id = %s AND paid = FALSE;
-            """
-        ), [user_id]
+            """,
+            [user_id],
+        )
         fine_due = cursor.fetchone()[0]
 
         if fine_due > 0:
@@ -51,8 +53,9 @@ def checkout(user_id: str, isbn: str) -> str:
             """
             SELECT COUNT(*) FROM BOOK_LOANS
             WHERE isbn = %s AND date_in IS NULL;
-            """
-        ), [isbn]
+            """,
+            [user_id],
+        )
         book_available = cursor.fetchone()[0]
 
         if book_available > 0:
@@ -63,8 +66,9 @@ def checkout(user_id: str, isbn: str) -> str:
             """
             INSERT INTO BOOK_LOANS (isbn, card_id, date_out, due_date)
             VALUES (%s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 14 DAY));
-            """
-        ), [isbn, user_id]
+            """,
+            [isbn, user_id],
+        )
 
         return "Checkout successful."
 

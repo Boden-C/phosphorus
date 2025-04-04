@@ -9,29 +9,57 @@ If you are looking for managing the database, check the manage.py file.
 """
 
 import django, os, sys
+from django.forms import ValidationError
+import traceback
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
 # The modules below contain the main logic
-from backend.api import create_borrower
+from backend.api import checkin, checkout, create_borrower, search_loans
 from reset import clear_database, import_data
 from setup.logger import log
 
 
 def main():
     # Comment this out if you want to skip: Clears the database
-    clear_database()
+    # clear_database()
     # Comment this out if you want to skip: Imports the data into the database
-    import_data()
+    # import_data()
 
     # Example of the create_borrower method
     try:
         card_id, bname = create_borrower("123456789", "John Doe", "123 Main St", "555-5555")
         log.info(f"Borrower created: {card_id}, {bname}")
+    except ValidationError as e:
+        log.warning("User already exists. Skipping.")
     except Exception as e:
-        log.error(f"Error creating borrower: {e}")
+        log.error(f"Error creating borrower: {e}\n{traceback.format_exc()}")
+
+    # Example of the checkout_book method
+    try:
+        loan_id = checkout("123456789", "9780195153445")
+        log.info(f"Book checked out: {loan_id}")
+    except Exception as e:
+        log.error(f"Error checking out book: {e}\n{traceback.format_exc()}")
+        return
+
+    loan_id: str
+    try:
+        # Example of the search_loans method
+        loans = search_loans("123456789", "CLASSICAL")
+        loan_id = loans[0][0]
+    except Exception as e:
+        log.error(f"Error searching loans: {e}\n{traceback.format_exc()}")
+        return
+
+    try:
+        # Example of the checkin method
+        checkin(loan_id)
+        log.info(f"Book checked in: {loan_id}")
+    except Exception as e:
+        log.error(f"Error checking in book: {e}\n{traceback.format_exc()}")
 
 
 if __name__ == "__main__":
