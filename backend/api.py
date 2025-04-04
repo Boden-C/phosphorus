@@ -39,7 +39,7 @@ def checkout(user_id: str, isbn: str) -> str:
         cursor.execute(
             """
             SELECT COALESCE(SUM(fine_amt), 0) FROM FINES
-            WHERE card_id = %s AND paid = FALSE;
+            WHERE loan_id = %s AND paid = FALSE;
             """,
             [user_id],
         )
