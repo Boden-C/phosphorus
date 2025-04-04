@@ -14,13 +14,25 @@ Contains:
  - create_author(...)
 """
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from django.db import connection
 from django.core.exceptions import ValidationError
 
 
 def checkout(user_id: str, isbn: str) -> str:
-    """Attempt to check out a book for a borrower"""
+    """
+    Attempt to check out a book for a borrower.
+
+    Args:
+        user_id: The card ID of the borrower
+        isbn: The ISBN of the book to check out
+
+    Returns:
+        str: loan_id if successful
+
+    Raises:
+        Exception: If a database error occurs
+    """
     with connection.cursor() as cursor:
         # Check if borrower has 3 active loans
         cursor.execute(
@@ -33,33 +45,42 @@ def checkout(user_id: str, isbn: str) -> str:
         active_loans = cursor.fetchone()[0]
 
         if active_loans >= 3:
-            return "Checkout failed: Borrower has already reached the maximum limit of 3 books."
+            raise ValidationError("Checkout failed: Borrower has 3 active loans.")
 
         # Check if borrower has unpaid fines
         cursor.execute(
             """
-            SELECT COALESCE(SUM(fine_amt), 0) FROM FINES
-            WHERE loan_id = %s AND paid = FALSE;
+            SELECT COALESCE(SUM(F.fine_amt), 0)
+            FROM FINES F
+            JOIN BOOK_LOANS BL ON F.Loan_id = BL.Loan_id
+            WHERE BL.Card_id = %s
+            AND F.Paid = FALSE;
             """,
-            [user_id],
+            [user_id],  # Pass the borrower's Card_id as the parameter
         )
-        fine_due = cursor.fetchone()[0]
+        fine_due = cursor.fetchone()[0]  # Get the total amount of unpaid fines
 
         if fine_due > 0:
-            return "Checkout failed: Borrower has unpaid fines."
+            raise ValidationError("Checkout failed: Borrower has unpaid fines.")
 
-        # Check if the book is available
+        # Check if the book is available by comparing number of copies to number of checked out copies
         cursor.execute(
             """
-            SELECT COUNT(*) FROM BOOK_LOANS
-            WHERE isbn = %s AND date_in IS NULL;
+            SELECT 
+                (SELECT COUNT(*) FROM BOOK WHERE isbn = %s) AS total_copies,
+                (SELECT COUNT(*) FROM BOOK_LOANS WHERE isbn = %s AND date_in IS NULL) AS checked_out_copies
             """,
-            [user_id],
+            [isbn, isbn],
         )
-        book_available = cursor.fetchone()[0]
+        result = cursor.fetchone()
+        total_copies = result[0]
+        checked_out_copies = result[1]
 
-        if book_available > 0:
-            return "Checkout failed: Book is currently checked out."
+        if total_copies == 0:
+            raise ValidationError("Checkout failed: Book not found.")
+
+        if checked_out_copies >= total_copies:
+            raise ValidationError("Checkout failed: No copies available.")
 
         # Insert new book loan
         cursor.execute(
@@ -73,12 +94,24 @@ def checkout(user_id: str, isbn: str) -> str:
         return "Checkout successful."
 
 
-def search_loans(user_id: str, query: str) -> List[Tuple]:
-    """Search book loans by user ID or book information"""
+def search_loans(user_id: str, query: str) -> Optional[List[Tuple]]:
+    """
+    Search book loans by user ID or book information.
+
+    Args:
+        user_id: The card ID of the borrower
+        query: Search string to match against ISBN or borrower name
+
+    Returns:
+        Optional[List[Tuple]]: A list of Tuple (loan_id, isbn, card_id, date_out, due_date, date_in) if results
+
+    Raises:
+        Exception: If a database error occurs
+    """
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT loan_id, isbn, card_no, date_out, due_date, date_in
+            SELECT loan_id, isbn, BORROWER.card_id, date_out, due_date, date_in
             FROM BOOK_LOANS
             JOIN BORROWER ON BOOK_LOANS.card_id = BORROWER.card_id
             WHERE BOOK_LOANS.card_id = %s 
@@ -87,11 +120,26 @@ def search_loans(user_id: str, query: str) -> List[Tuple]:
         """,
             [user_id, f"%{query}%", f"%{query}%"],
         )
-        return cursor.fetchall()
+        results = cursor.fetchall()
+        if not results:
+            return None
+        return results
 
 
 def checkin(loan_id: str) -> str:
-    """Check in a book by updating its return date."""
+    """
+    Check in a book by updating its return date.
+
+    Args:
+        loan_id: The ID of the loan to check in
+
+    Returns:
+        str: loan_id if successful
+
+    Raises:
+        ValidationError: If no active loan is found
+        Exception: If a database error occurs
+    """
     with connection.cursor() as cursor:
         # Check if the loan exists and is still active
         cursor.execute(
@@ -105,7 +153,7 @@ def checkin(loan_id: str) -> str:
         loan_exists = cursor.fetchone()[0]
 
         if loan_exists == 0:
-            return "Check-in failed: No active loan found for this loan ID"
+            raise ValidationError("Check-in failed: Loan ID not found or already checked in.")
 
         # Update the book loan record to mark as checked in
         cursor.execute(
@@ -113,11 +161,11 @@ def checkin(loan_id: str) -> str:
             UPDATE BOOK_LOANS
             SET date_in = CURDATE()
             WHERE loan_id = %s;
-        """,
+            """,
             [loan_id],
         )
 
-        return "Check-in successful."
+        return loan_id
 
 
 def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]:
@@ -161,6 +209,9 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tu
             [card_id_str, ssn, bname, address, phone],
         )
         return (card_id_str, bname)
+
+
+# The rest are for creating the other rows for importing the data
 
 
 def create_book(isbn: str, title: str) -> Tuple[str, str]:

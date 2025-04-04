@@ -10,6 +10,7 @@ If you are looking for managing the database, check the manage.py file.
 
 import django, os, sys
 from django.forms import ValidationError
+from setup.logger import log
 import traceback
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
@@ -19,7 +20,6 @@ django.setup()
 # The modules below contain the main logic
 from backend.api import checkin, checkout, create_borrower, search_loans
 from reset import clear_database, import_data
-from setup.logger import log
 
 
 def main():
@@ -29,27 +29,35 @@ def main():
     # import_data()
 
     # Example of the create_borrower method
+    card_id: str = None
     try:
         card_id, bname = create_borrower("123456789", "John Doe", "123 Main St", "555-5555")
         log.info(f"Borrower created: {card_id}, {bname}")
     except ValidationError as e:
         log.warning("User already exists. Skipping.")
+        card_id = "10001000"
     except Exception as e:
         log.error(f"Error creating borrower: {e}\n{traceback.format_exc()}")
 
     # Example of the checkout_book method
     try:
-        loan_id = checkout("123456789", "9780195153445")
-        log.info(f"Book checked out: {loan_id}")
+        loan_id = checkout(card_id, "9780195153445")
+        log.info(f"Book checked out: Loan {loan_id}")
     except Exception as e:
         log.error(f"Error checking out book: {e}\n{traceback.format_exc()}")
         return
 
-    loan_id: str
+    loan_id: str = None
     try:
         # Example of the search_loans method
-        loans = search_loans("123456789", "CLASSICAL")
-        loan_id = loans[0][0]
+        loans = search_loans(card_id, "9780195153445")
+        log.info(f"Loans found: {len(loans)} loans")
+        if loans:
+            # First loan that does not have a date_in
+            for loan in loans:
+                if loan[5] is None:
+                    loan_id = loan[0]
+                    break
     except Exception as e:
         log.error(f"Error searching loans: {e}\n{traceback.format_exc()}")
         return
@@ -57,7 +65,7 @@ def main():
     try:
         # Example of the checkin method
         checkin(loan_id)
-        log.info(f"Book checked in: {loan_id}")
+        log.info(f"Book checked in: Loan {loan_id}")
     except Exception as e:
         log.error(f"Error checking in book: {e}\n{traceback.format_exc()}")
 
