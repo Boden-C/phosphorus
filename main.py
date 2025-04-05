@@ -8,6 +8,7 @@ If you are looking for the HTTP endpoints, check the backend/views.py file.
 If you are looking for managing the database, check the manage.py file.
 """
 
+from datetime import timedelta
 import django, os, sys
 from django.forms import ValidationError
 from setup.logger import log
@@ -18,7 +19,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
 # The modules below contain the main logic
-from backend.api import checkin, checkout, create_borrower, search_loans
+from backend.api import *
 from reset import clear_database, import_data
 
 
@@ -40,6 +41,7 @@ def main():
         log.error(f"Error creating borrower: {e}\n{traceback.format_exc()}")
 
     # Example of the checkout_book method
+    loan_id: str = None
     try:
         loan_id = checkout(card_id, "9780195153445")
         log.info(f"Book checked out: Loan {loan_id}")
@@ -47,23 +49,44 @@ def main():
         log.error(f"Error checking out book: {e}\n{traceback.format_exc()}")
         return
 
-    loan_id: str = None
+    # Example of the search_loans method
     try:
-        # Example of the search_loans method
         loans = search_loans(card_id, "9780195153445")
         log.info(f"Loans found: {len(loans)} loans")
-        if loans:
-            # First loan that does not have a date_in
-            for loan in loans:
-                if loan[5] is None:
-                    loan_id = loan[0]
-                    break
     except Exception as e:
         log.error(f"Error searching loans: {e}\n{traceback.format_exc()}")
-        return
 
+    # Example of the get_borrower_fines method
     try:
-        # Example of the checkin method
+        fines = get_borrower_fines(card_id)
+        log.info(f"Fines found: {len(fines)} fines")
+    except Exception as e:
+        log.error(f"Error getting borrower fines: {e}\n{traceback.format_exc()}")
+
+    # Example of the update_fines method
+    try:
+        # For testing purposes, we set the date to the future
+        update_fines(date.today() + timedelta(days=20))
+        log.info(f"All fines updated")
+    except Exception as e:
+        log.error(f"Error updating fines: {e}\n{traceback.format_exc()}")
+
+    # Example of the get_fine_summary method
+    try:
+        fine_summary = get_fine_summary(card_id)
+        log.info(f"Fine summary: {fine_summary}")
+    except Exception as e:
+        log.error(f"Error getting fine summary: {e}\n{traceback.format_exc()}")
+
+    # Example of the pay_borrower_fines method
+    try:
+        pay_borrower_fines(card_id)
+        log.info(f"Fines paid for borrower {card_id}")
+    except Exception as e:
+        log.error(f"Error paying borrower fines: {e}\n{traceback.format_exc()}")
+
+    # Example of the checkin method
+    try:
         checkin(loan_id)
         log.info(f"Book checked in: Loan {loan_id}")
     except Exception as e:
