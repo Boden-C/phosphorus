@@ -204,6 +204,61 @@ def checkin(loan_id: str) -> str:
 
         return loan_id
 
+def pay_loan_fine(loan_id: str) -> dict:
+    """
+    Process payment for a single loan's fine
+    
+    Args:
+        loan_id: The ID of the loan to pay
+        
+    Returns:
+        Dictionary with payment confirmation
+        
+    Raises:
+        ValidationError: If book isn't returned or fine already paid
+    """
+    with connection.cursor() as cursor:
+        # Verify book was returned
+        cursor.execute(
+            """
+            SELECT date_in FROM BOOK_LOANS
+            WHERE loan_id = %s
+            """,
+            [loan_id]
+        )
+        result = cursor.fetchone()
+        
+        if not result or result[0] is None:
+            raise ValidationError("Cannot pay fine - book not yet returned")
+            
+        # Verify fine exists and isn't paid
+        cursor.execute(
+            """
+            SELECT fine_amt FROM FINES
+            WHERE loan_id = %s AND paid = FALSE
+            """,
+            [loan_id]
+        )
+        fine = cursor.fetchone()
+        
+        if not fine:
+            raise ValidationError("No unpaid fine found for this loan")
+            
+        # Mark fine as paid
+        cursor.execute(
+            """
+            UPDATE FINES
+            SET paid = TRUE
+            WHERE loan_id = %s
+            """,
+            [loan_id]
+        )
+        
+        return {
+            "loan_id": loan_id,
+            "amount_paid": float(fine[0]),
+            "message": f"Paid ${fine[0]:.2f} for loan {loan_id}"
+        }
 
 def get_borrower_fines(card_id: str, show_paid: bool = False) -> List[dict]:
     """
@@ -259,45 +314,39 @@ def pay_borrower_fines(card_id: str) -> dict:
         # Check for unreturned books
         cursor.execute(
             """
-            SELECT COUNT(*) FROM BOOK_LOANS
-            WHERE card_id = %s AND date_in IS NULL
+            SELECT f.loan_id, f.fine_amt
+            FROM FINES f
+            JOIN BOOK_LOANS bl ON f.loan_id = bl.loan_id
+            WHERE bl.card_id = %s
+              AND bl.date_in IS NOT NULL
+              AND f.paid = FALSE
             """,
-            [card_id],
+            [card_id]
         )
-        unreturned = cursor.fetchone()[0]
-
-        if unreturned > 0:
-            raise ValidationError("Cannot pay fines while books are still checked out")
-
-        # Get total unpaid fines
-        cursor.execute(
-            """
-            SELECT COALESCE(SUM(fine_amt), 0) 
-            FROM FINES
-            WHERE loan_id IN (
-                SELECT loan_id FROM BOOK_LOANS 
-                WHERE card_id = %s
-            ) AND paid = FALSE
-            """,
-            [card_id],
-        )
-        total = cursor.fetchone()[0]
-
-        # Mark all unpaid fines as paid
-        cursor.execute(
-            """
-            UPDATE FINES
-            SET paid = TRUE
-            WHERE loan_id IN (
-                SELECT loan_id FROM BOOK_LOANS 
-                WHERE card_id = %s
-            ) AND paid = FALSE
-            """,
-            [card_id],
-        )
-
-        return {"card_id": card_id, "total_paid": float(total), "message": f"Successfully paid ${total:.2f} in fines"}
-
+        fines = cursor.fetchall()
+        
+        if not fines:
+            raise ValidationError("No payable fines found")
+            
+        # Pay each fine individually
+        total = 0.0
+        for loan_id, amount in fines:
+            cursor.execute(
+                """
+                UPDATE FINES
+                SET paid = TRUE
+                WHERE loan_id = %s
+                """,
+                [loan_id]
+            )
+            total += amount
+        
+        return {
+            "card_id": card_id,
+            "total_paid": float(total),
+            "fines_paid": len(fines),
+            "message": f"Paid ${total:.2f} for {len(fines)} loans"
+        }
 
 def update_fines(current_date: date) -> None:
     """
