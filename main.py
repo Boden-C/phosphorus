@@ -24,6 +24,28 @@ from reset import clear_database, import_data
 
 
 def main():
+    """
+    Main testing playground for the API methods.
+    By default, it contains examples of how to use the API methods.
+    
+    All available API methods:
+     - search_books(query:str)
+     - checkout(user_id:str, isbn:str)
+     - search_loans(user_id:str, query:str)
+     - checkin(loan_id:str)
+     - get_borrower_fines(card_id:str, show_paid:bool=False)
+     - pay_borrower_fines(card_id:str)
+     - get_fine_summary(card_id:str=None)
+     - update_fines(current_date:date=date.today())
+     - create_borrower(ssn:str, bname:str, address:str, phone:str=None)
+     - create_book(isbn:str, title:str)
+     - create_junction(author_id:str, isbn:str)
+     - create_author(author_name:str)
+    
+    Setup:
+     - clear_database()
+     - import_data()
+    """
     # Comment this out if you want to skip: Clears the database
     # clear_database()
     # Comment this out if you want to skip: Imports the data into the database
