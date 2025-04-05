@@ -22,7 +22,8 @@ from typing import List, Optional, Tuple
 from django.db import connection, transaction
 from django.core.exceptions import ValidationError
 
-def search_books(query: str) -> Optional[List[Tuple]]:
+
+def search_books(query: str) -> List[Tuple]:
     """
     Search for books by title, ISBN, or author name.
 
@@ -30,7 +31,7 @@ def search_books(query: str) -> Optional[List[Tuple]]:
         query: The search string to look for in books or authors
 
     Returns:
-        Optional[List[Tuple]]: A list of Tuple (isbn, title, author_names) if results are found
+        List[Tuple]: A list of Tuple (isbn, title, author_names) if results are found
 
     Raises:
         Exception: If a database error occurs
@@ -47,10 +48,8 @@ def search_books(query: str) -> Optional[List[Tuple]]:
             """,
             [f"%{query}%", f"%{query}%", f"%{query}%"],
         )
-        results = cursor.fetchall()
-        if not results:
-            return None
-        return results
+        return cursor.fetchall()
+
 
 def checkout(user_id: str, isbn: str) -> str:
     """
