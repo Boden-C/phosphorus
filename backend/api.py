@@ -10,7 +10,7 @@ Contains:
  - get_borrower_fines(card_id:str, show_paid:bool=False)
  - pay_borrower_fines(card_id:str)
  - get_fine_summary(card_id:str=None)
- - update_fines()
+ - update_fines(current_date:date=date.today())
  - create_borrower(ssn:str, bname:str, address:str, phone:str=None)
  - create_book(isbn:str, title:str)
  - create_junction(author_id:str, isbn:str)
