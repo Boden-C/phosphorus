@@ -23,6 +23,34 @@ from django.db import connection, transaction
 from django.core.exceptions import ValidationError
 
 
+def search_books(query: str) -> List[Tuple]:
+    """
+    Search for books by title, ISBN, or author name.
+
+    Args:
+        query: The search string to look for in books or authors
+
+    Returns:
+        List[Tuple]: A list of Tuple (isbn, title, author_names) if results are found
+
+    Raises:
+        Exception: If a database error occurs
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT B.isbn, B.title, GROUP_CONCAT(A.name SEPARATOR ', ') AS authors
+            FROM BOOK B
+            LEFT JOIN BOOK_AUTHORS BA ON B.isbn = BA.isbn
+            LEFT JOIN AUTHORS A ON BA.author_id = A.author_id
+            WHERE B.title LIKE %s OR B.isbn LIKE %s OR A.name LIKE %s
+            GROUP BY B.isbn, B.title
+            """,
+            [f"%{query}%", f"%{query}%", f"%{query}%"],
+        )
+        return cursor.fetchall()
+
+
 def checkout(user_id: str, isbn: str) -> str:
     """
     Attempt to check out a book for a borrower.

@@ -62,10 +62,20 @@ def main():
     except Exception as e:
         log.error(f"Error creating borrower: {e}\n{traceback.format_exc()}")
 
+    # Example of the search_book method
+    isbn: str = None
+    try:
+        books = search_books("CLASSICAL")
+        isbn, title, names = books[0]
+        log.info(f"Book found: {isbn}")
+    except Exception as e:
+        log.error(f"Error searching book: {e}\n{traceback.format_exc()}")
+        return
+
     # Example of the checkout_book method
     loan_id: str = None
     try:
-        loan_id = checkout(card_id, "9780195153445")
+        loan_id = checkout(card_id, isbn)
         log.info(f"Book checked out: Loan {loan_id}")
     except Exception as e:
         log.error(f"Error checking out book: {e}\n{traceback.format_exc()}")
@@ -73,8 +83,8 @@ def main():
 
     # Example of the search_loans method
     try:
-        loans = search_loans(card_id, "9780195153445")
-        log.info(f"Loans found: {len(loans)} loans")
+        loans = search_loans(card_id, isbn)
+        log.info(f"Loans found: {len(loans)} loans total")
     except Exception as e:
         log.error(f"Error searching loans: {e}\n{traceback.format_exc()}")
 
@@ -100,19 +110,19 @@ def main():
     except Exception as e:
         log.error(f"Error getting fine summary: {e}\n{traceback.format_exc()}")
 
-    # Example of the pay_borrower_fines method
-    try:
-        pay_borrower_fines(card_id)
-        log.info(f"Fines paid for borrower {card_id}")
-    except Exception as e:
-        log.error(f"Error paying borrower fines: {e}\n{traceback.format_exc()}")
-
     # Example of the checkin method
     try:
         checkin(loan_id)
         log.info(f"Book checked in: Loan {loan_id}")
     except Exception as e:
         log.error(f"Error checking in book: {e}\n{traceback.format_exc()}")
+
+    # Example of the pay_borrower_fines method
+    try:
+        pay_borrower_fines(card_id)
+        log.info(f"Fines paid for borrower {card_id}")
+    except Exception as e:
+        log.error(f"Error paying borrower fines: {e}\n{traceback.format_exc()}")
 
 
 if __name__ == "__main__":
