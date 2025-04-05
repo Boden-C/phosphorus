@@ -27,13 +27,14 @@ def main():
     """
     Main testing playground for the API methods.
     By default, it contains examples of how to use the API methods.
-    
+
     All available API methods:
      - search_books(query:str)
-     - checkout(user_id:str, isbn:str)
-     - search_loans(user_id:str, query:str)
+     - checkout(card_id:str, isbn:str)
+     - search_loans(card_id:str, query:str)
      - checkin(loan_id:str)
      - get_borrower_fines(card_id:str, show_paid:bool=False)
+     - pay_loan_fine(loan_id:str)
      - pay_borrower_fines(card_id:str)
      - get_fine_summary(card_id:str=None)
      - update_fines(current_date:date=date.today())
@@ -41,7 +42,7 @@ def main():
      - create_book(isbn:str, title:str)
      - create_junction(author_id:str, isbn:str)
      - create_author(author_name:str)
-    
+
     Setup:
      - clear_database()
      - import_data()
@@ -66,8 +67,8 @@ def main():
     isbn: str = None
     try:
         books = search_books("CLASSICAL")
+        log.info(f"Books found: {len(books)} books total")
         isbn, title, names = books[0]
-        log.info(f"Book found: {isbn}")
     except Exception as e:
         log.error(f"Error searching book: {e}\n{traceback.format_exc()}")
         return
@@ -94,6 +95,13 @@ def main():
         log.info(f"Fines found: {len(fines)} fines")
     except Exception as e:
         log.error(f"Error getting borrower fines: {e}\n{traceback.format_exc()}")
+
+    # Example of get_fine_summary method
+    try:
+        fine_summary = get_fine_summary()
+        log.info(f"Fine summary: {fine_summary}")
+    except Exception as e:
+        log.error(f"Error getting fine summary: {e}\n{traceback.format_exc()}")
 
     # Example of the update_fines method
     try:

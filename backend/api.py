@@ -4,10 +4,11 @@ This contains all the methods that interacts with the database and can be import
 
 Contains:
  - search_books(query:str)
- - checkout(user_id:str, isbn:str)
- - search_loans(user_id:str, query:str)
+ - checkout(card_id:str, isbn:str)
+ - search_loans(card_id:str, query:str)
  - checkin(loan_id:str)
  - get_borrower_fines(card_id:str, show_paid:bool=False)
+ - pay_loan_file(loan_id:str)
  - pay_borrower_fines(card_id:str)
  - get_fine_summary(card_id:str=None)
  - update_fines(current_date:date=date.today())
@@ -18,7 +19,8 @@ Contains:
 """
 
 from datetime import date
-from typing import List, Optional, Tuple
+import decimal
+from typing import List, Tuple
 from django.db import connection, transaction
 from django.core.exceptions import ValidationError
 
@@ -51,12 +53,12 @@ def search_books(query: str) -> List[Tuple]:
         return cursor.fetchall()
 
 
-def checkout(user_id: str, isbn: str) -> str:
+def checkout(card_id: str, isbn: str) -> str:
     """
     Attempt to check out a book for a borrower.
 
     Args:
-        user_id: The card ID of the borrower
+        card_id: The card ID of the borrower
         isbn: The ISBN of the book to check out
 
     Returns:
@@ -72,7 +74,7 @@ def checkout(user_id: str, isbn: str) -> str:
             SELECT COUNT(*) FROM BOOK_LOANS
             WHERE card_id = %s AND date_in IS NULL;
             """,
-            [user_id],
+            [card_id],
         )
         active_loans = cursor.fetchone()[0]
 
@@ -88,7 +90,7 @@ def checkout(user_id: str, isbn: str) -> str:
             WHERE BL.Card_id = %s
             AND F.Paid = FALSE;
             """,
-            [user_id],  # Pass the borrower's Card_id as the parameter
+            [card_id],  # Pass the borrower's Card_id as the parameter
         )
         fine_due = cursor.fetchone()[0]  # Get the total amount of unpaid fines
 
@@ -120,7 +122,7 @@ def checkout(user_id: str, isbn: str) -> str:
             INSERT INTO BOOK_LOANS (isbn, card_id, date_out, due_date)
             VALUES (%s, %s, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 14 DAY));
             """,
-            [isbn, user_id],
+            [isbn, card_id],
         )
 
         # Get the loan_id of the newly created loan
@@ -134,12 +136,12 @@ def checkout(user_id: str, isbn: str) -> str:
         return cursor.fetchone()[0]
 
 
-def search_loans(user_id: str, query: str) -> List[Tuple]:
+def search_loans(card_id: str, query: str) -> List[Tuple]:
     """
     Search book loans by user ID or book information.
 
     Args:
-        user_id: The card ID of the borrower
+        card_id: The card ID of the borrower
         query: Search string to match against ISBN or borrower name
 
     Returns:
@@ -158,7 +160,7 @@ def search_loans(user_id: str, query: str) -> List[Tuple]:
                 AND (BOOK_LOANS.isbn LIKE %s
                     OR BORROWER.bname LIKE %s);
         """,
-            [user_id, f"%{query}%", f"%{query}%"],
+            [card_id, f"%{query}%", f"%{query}%"],
         )
         return cursor.fetchall()
 
@@ -204,16 +206,17 @@ def checkin(loan_id: str) -> str:
 
         return loan_id
 
+
 def pay_loan_fine(loan_id: str) -> dict:
     """
     Process payment for a single loan's fine
-    
+
     Args:
         loan_id: The ID of the loan to pay
-        
+
     Returns:
         Dictionary with payment confirmation
-        
+
     Raises:
         ValidationError: If book isn't returned or fine already paid
     """
@@ -224,26 +227,26 @@ def pay_loan_fine(loan_id: str) -> dict:
             SELECT date_in FROM BOOK_LOANS
             WHERE loan_id = %s
             """,
-            [loan_id]
+            [loan_id],
         )
         result = cursor.fetchone()
-        
+
         if not result or result[0] is None:
             raise ValidationError("Cannot pay fine - book not yet returned")
-            
+
         # Verify fine exists and isn't paid
         cursor.execute(
             """
             SELECT fine_amt FROM FINES
             WHERE loan_id = %s AND paid = FALSE
             """,
-            [loan_id]
+            [loan_id],
         )
         fine = cursor.fetchone()
-        
+
         if not fine:
             raise ValidationError("No unpaid fine found for this loan")
-            
+
         # Mark fine as paid
         cursor.execute(
             """
@@ -251,14 +254,11 @@ def pay_loan_fine(loan_id: str) -> dict:
             SET paid = TRUE
             WHERE loan_id = %s
             """,
-            [loan_id]
+            [loan_id],
         )
-        
-        return {
-            "loan_id": loan_id,
-            "amount_paid": float(fine[0]),
-            "message": f"Paid ${fine[0]:.2f} for loan {loan_id}"
-        }
+
+        return {"loan_id": loan_id, "amount_paid": float(fine[0]), "message": f"Paid ${fine[0]:.2f} for loan {loan_id}"}
+
 
 def get_borrower_fines(card_id: str, show_paid: bool = False) -> List[dict]:
     """
@@ -321,15 +321,15 @@ def pay_borrower_fines(card_id: str) -> dict:
               AND bl.date_in IS NOT NULL
               AND f.paid = FALSE
             """,
-            [card_id]
+            [card_id],
         )
         fines = cursor.fetchall()
-        
+
         if not fines:
             raise ValidationError("No payable fines found")
-            
+
         # Pay each fine individually
-        total = 0.0
+        total: decimal.Decimal = decimal.Decimal(0)
         for loan_id, amount in fines:
             cursor.execute(
                 """
@@ -337,16 +337,17 @@ def pay_borrower_fines(card_id: str) -> dict:
                 SET paid = TRUE
                 WHERE loan_id = %s
                 """,
-                [loan_id]
+                [loan_id],
             )
             total += amount
-        
+
         return {
             "card_id": card_id,
             "total_paid": float(total),
             "fines_paid": len(fines),
-            "message": f"Paid ${total:.2f} for {len(fines)} loans"
+            "message": f"Paid ${total:.2f} for {len(fines)} loans",
         }
+
 
 def update_fines(current_date: date) -> None:
     """
@@ -359,56 +360,57 @@ def update_fines(current_date: date) -> None:
     Args:
         current_date (date): The date used to calculate fines for unreturned books.
     """
-    with connection.cursor() as cursor:
-        # Fetch all late loans with their fine status
-        sql = """
-        SELECT bl.Loan_id, bl.Due_date, bl.Date_in, f.Fine_amt, f.Paid
-        FROM BOOK_LOANS bl
-        LEFT JOIN 
-            FINES f ON bl.Loan_id = f.Loan_id
-        WHERE 
-            (bl.Date_in IS NOT NULL AND bl.Date_in > bl.Due_date) 
-            OR (bl.Date_in IS NULL AND bl.Due_date < %s)
-        """
-        cursor.execute(sql, [current_date])
-        loans = cursor.fetchall()
-
-        # Step 2: Process loans in Python and prepare bulk operations
-        final_inserts: List[Tuple[int, float, bool]] = []  # (Loan_id, Fine_amt, Paid)
-        final_updates: List[Tuple[float, int]] = []  # (Fine_amt, Loan_id)
-
-        for loan in loans:
-            loan_id, due_date, date_in, existing_fine, paid = loan
-            paid = paid if paid is not None else False
-
-            # Calculate the fine
-            days_late = (date_in - due_date).days if date_in else (current_date - due_date).days
-            calculated_fine = max(days_late, 0) * 0.25
-
-            # If no fine, then insert a new fine
-            if existing_fine is None:
-                final_inserts.append((loan_id, calculated_fine, False))
-
-            # If fine exists and the calculated fine is different, update it
-            elif not paid and existing_fine != calculated_fine:
-                final_updates.append((calculated_fine, loan_id))
-
-            # Else paid is True or fine is already updated
-
-        # Execute the inserts and updates
-        if final_inserts:
-            insert_sql = """
-            INSERT INTO FINES (Loan_id, Fine_amt, Paid)
-            VALUES (%s, %s, %s)
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            # Fetch all late loans with their fine status
+            sql = """
+            SELECT bl.Loan_id, bl.Due_date, bl.Date_in, f.Fine_amt, f.Paid
+            FROM BOOK_LOANS bl
+            LEFT JOIN 
+                FINES f ON bl.Loan_id = f.Loan_id
+            WHERE 
+                (bl.Date_in IS NOT NULL AND bl.Date_in > bl.Due_date) 
+                OR (bl.Date_in IS NULL AND bl.Due_date < %s)
             """
-            cursor.executemany(insert_sql, final_inserts)
-        if final_updates:
-            update_sql = """
-            UPDATE FINES
-            SET Fine_amt = %s
-            WHERE Loan_id = %s
-            """
-            cursor.executemany(update_sql, final_updates)
+            cursor.execute(sql, [current_date])
+            loans = cursor.fetchall()
+
+            # Step 2: Process loans in Python and prepare bulk operations
+            final_inserts: List[Tuple[int, float, bool]] = []  # (Loan_id, Fine_amt, Paid)
+            final_updates: List[Tuple[float, int]] = []  # (Fine_amt, Loan_id)
+
+            for loan in loans:
+                loan_id, due_date, date_in, existing_fine, paid = loan
+                paid = paid if paid is not None else False
+
+                # Calculate the fine
+                days_late = (date_in - due_date).days if date_in else (current_date - due_date).days
+                calculated_fine = max(days_late, 0) * 0.25
+
+                # If no fine, then insert a new fine
+                if existing_fine is None:
+                    final_inserts.append((loan_id, calculated_fine, False))
+
+                # If fine exists and the calculated fine is different, update it
+                elif not paid and existing_fine != calculated_fine:
+                    final_updates.append((calculated_fine, loan_id))
+
+                # Else paid is True or fine is already updated
+
+            # Execute the inserts and updates
+            if final_inserts:
+                insert_sql = """
+                INSERT INTO FINES (Loan_id, Fine_amt, Paid)
+                VALUES (%s, %s, %s)
+                """
+                cursor.executemany(insert_sql, final_inserts)
+            if final_updates:
+                update_sql = """
+                UPDATE FINES
+                SET Fine_amt = %s
+                WHERE Loan_id = %s
+                """
+                cursor.executemany(update_sql, final_updates)
 
 
 def get_fine_summary(card_id: str = None) -> dict:
