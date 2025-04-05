@@ -14,9 +14,8 @@ root/
     urls.py         # Defines the URL patterns for the HTTP endpoints
     views.py        # Defines the HTTP endpoints
   setup/  
-    normalize/  
-      data/         # Directory to hold raw input data for normalization
-      output/       # Directory to store the normalized output data
+    data/         # Directory to hold raw input data for normalization
+    output/       # Directory to store the normalized output data
     normalize.py    # Script responsible for data normalization
     validate.py     # Script responsible for data validation
   manage.py         # Django administrative script
