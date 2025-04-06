@@ -20,7 +20,7 @@ root/
     validate.py     # Script responsible for data validation
   manage.py         # Django administrative script
   main.py           # Main entry point for an example usage of the API
-  setup.py          # Script for setting up the application environment and dependencies
+  reset.py          # Script for setting up the application environment and dependencies
 ```
 
 ## Files
@@ -107,16 +107,16 @@ python src/normalize/validate.py
 
 After running `normalize.py`, the cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv` in the project folder.
 
-Before load_borrowers:
+To initiliaze, you can first run:
 
 ```sh
-python setup_test_admin.py
+python reset.py
 ```
 
-To run the load_borrowers:
+You can write your own scripts in `main.py`, by default there are some examples:
 
 ```sh
-python load_borrowers.py
+python main.py
 ```
 
 To run server;
