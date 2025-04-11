@@ -48,9 +48,9 @@ def main():
      - import_data()
     """
     # Comment this out if you want to skip: Clears the database
-    # clear_database()
+    clear_database()
     # Comment this out if you want to skip: Imports the data into the database
-    # import_data()
+    import_data()
 
     # Example of the create_borrower method
     card_id: str = None
