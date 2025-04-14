@@ -83,8 +83,12 @@ root/
 
    ```sh
    mysql -u phosphorus_user phosphorus_db < setup/schema.sql
-   Get-Content setup/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
    ```
+   Or if you are using Windows Powershell:
+   ```pwsh
+   Get-Content setup/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
+   ``` 
+   
 7. Update and confirm Django [settings.py](./api/settings.py):
 
    ```sh
@@ -107,17 +111,19 @@ python src/normalize/validate.py
 
 After running `normalize.py`, the cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv` in the project folder.
 
-To initiliaze, you can first run:
+To initialize, you can first run:
 
 ```sh
 python reset.py
 ```
 
-You can write your own scripts in `main.py`, by default there are some examples:
+You can then write your own code in `main.py`:
 
 ```sh
 python main.py
 ```
+
+By default, there are some examples on how to use the api.
 
 To run server;
 
