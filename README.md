@@ -130,9 +130,13 @@ The system includes robust fine management capabilities:
 
    ```sh
    mysql -u phosphorus_user phosphorus_db < setup/schema.sql
-   Get-Content setup/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
    ```
-7. Update and confirm Django [settings.py](./backend/settings.py):
+   Or if you are using Windows Powershell:
+   ```pwsh
+   Get-Content setup/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
+   ``` 
+   
+7. Update and confirm Django [settings.py](./api/settings.py):
 
    ```sh
    python manage.py migrate
@@ -140,19 +144,35 @@ The system includes robust fine management capabilities:
 
 ## Running the Application
 
-To initialize the database with sample data:
+To normalize the data:
+
+```sh
+python src/normalize/normalize.py
+```
+
+To validate the data separately:
+
+```sh
+python src/normalize/validate.py
+```
+
+After running `normalize.py`, the cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv` in the project folder.
+
+To initialize, you can first run:
 
 ```sh
 python reset.py
 ```
 
-To run the example main program:
+You can then write your own code in `main.py`:
 
 ```sh
 python main.py
 ```
 
-To run the development server:
+By default, there are some examples on how to use the api.
+
+To run server;
 
 ```sh
 python manage.py runserver
