@@ -1,26 +1,27 @@
 """
 The logic for handling requests and responses in the backend of the application.
-This contains all the methods that interacts with the database and can be imported for usage in other files.
+This contains all the methods that interact with the database and can be imported for usage in other files.
 
 Contains:
- - search_books(query:str)
- - checkout(card_id:str, isbn:str)
- - search_loans(card_id:str, query:str)
- - checkin(loan_id:str)
- - get_borrower_fines(card_id:str, show_paid:bool=False)
- - pay_loan_file(loan_id:str)
- - pay_borrower_fines(card_id:str)
- - get_fine_summary(card_id:str=None)
- - update_fines(current_date:date=date.today())
- - create_borrower(ssn:str, bname:str, address:str, phone:str=None)
- - create_book(isbn:str, title:str)
- - create_junction(author_id:str, isbn:str)
- - create_author(author_name:str)
+ - search_books(query: str) -> List[Tuple]
+ - checkout(card_id: str, isbn: str) -> str
+ - search_loans(card_id: str, query: str) -> List[Tuple]
+ - checkin(loan_id: str) -> str
+ - get_fines(card_id: str = None, include_paid: bool = False, sum: bool = False) -> List[Tuple]
+ - get_user_fines(card_id: str, include_paid: bool = False) -> Decimal
+ - get_fines_dict(include_paid: bool = False) -> Dict[str, Decimal]
+ - pay_loan_fine(loan_id: str) -> dict
+ - pay_borrower_fines(card_id: str) -> dict
+ - update_fines(current_date: date = date.today()) -> None
+ - create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]
+ - create_book(isbn: str, title: str) -> Tuple[str, str]
+ - create_junction(author_id: str, isbn: str) -> Tuple[str, str]
+ - create_author(author_name: str) -> Tuple[str, str]
 """
 
 from datetime import date
 import decimal
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional
 from django.db import connection, transaction
 from django.core.exceptions import ValidationError
 
@@ -30,10 +31,10 @@ def search_books(query: str) -> List[Tuple]:
     Search for books by title, ISBN, or author name.
 
     Args:
-        query: The search string to look for in books or authors
+        query (str): The search string to look for in books or authors
 
     Returns:
-        List[Tuple]: A list of Tuple (isbn, title, author_names) if results are found
+        List[Tuple]: A list of tuples (isbn, title, author_names) if results are found
 
     Raises:
         Exception: If a database error occurs
@@ -58,13 +59,14 @@ def checkout(card_id: str, isbn: str) -> str:
     Attempt to check out a book for a borrower.
 
     Args:
-        card_id: The card ID of the borrower
-        isbn: The ISBN of the book to check out
+        card_id (str): The card ID of the borrower
+        isbn (str): The ISBN of the book to check out
 
     Returns:
         str: loan_id if successful
 
     Raises:
+        ValidationError: If borrower has 3 active loans, unpaid fines, or book not available
         Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
@@ -90,9 +92,9 @@ def checkout(card_id: str, isbn: str) -> str:
             WHERE BL.Card_id = %s
             AND F.Paid = FALSE;
             """,
-            [card_id],  # Pass the borrower's Card_id as the parameter
+            [card_id],
         )
-        fine_due = cursor.fetchone()[0]  # Get the total amount of unpaid fines
+        fine_due = cursor.fetchone()[0]
 
         if fine_due > 0:
             raise ValidationError("Checkout failed: Borrower has unpaid fines.")
@@ -141,11 +143,11 @@ def search_loans(card_id: str, query: str) -> List[Tuple]:
     Search book loans by user ID or book information.
 
     Args:
-        card_id: The card ID of the borrower
-        query: Search string to match against ISBN or borrower name
+        card_id (str): The card ID of the borrower
+        query (str): Search string to match against ISBN or borrower name
 
     Returns:
-        List[Tuple]: A list of Tuples (loan_id, isbn, card_id, date_out, due_date, date_in) if results
+        List[Tuple]: A list of tuples (loan_id, isbn, card_id, date_out, due_date, date_in) if results
 
     Raises:
         Exception: If a database error occurs
@@ -170,7 +172,7 @@ def checkin(loan_id: str) -> str:
     Check in a book by updating its return date.
 
     Args:
-        loan_id: The ID of the loan to check in
+        loan_id (str): The ID of the loan to check in
 
     Returns:
         str: loan_id if successful
@@ -207,18 +209,133 @@ def checkin(loan_id: str) -> str:
         return loan_id
 
 
-def pay_loan_fine(loan_id: str) -> dict:
+def get_fines(card_id: Optional[str] = None, include_paid: bool = False, sum: bool = False) -> List[Tuple]:
     """
-    Process payment for a single loan's fine
+    Get list of fines, optionally filtered by borrower.
 
     Args:
-        loan_id: The ID of the loan to pay
+        card_id (Optional[str]): The card ID of the borrower to filter by (None for all borrowers)
+        include_paid (bool): Whether to include paid fines (default: False)
+        sum (bool): Whether to sum fines by borrower (default: False)
 
     Returns:
-        Dictionary with payment confirmation
+        List[Tuple]: A list of fine records or sum by borrower
+
+    Raises:
+        Exception: If a database error occurs
+    """
+    with connection.cursor() as cursor:
+        if sum:
+            query = """
+                SELECT bl.card_id, COALESCE(SUM(f.fine_amt), 0) AS total_fine
+                FROM FINES f
+                JOIN BOOK_LOANS bl ON f.loan_id = bl.loan_id
+                WHERE 1=1
+            """
+            params = []
+
+            if not include_paid:
+                query += " AND f.paid = FALSE"
+
+            if card_id:
+                query += " AND bl.card_id = %s"
+                params.append(card_id)
+
+            query += " GROUP BY bl.card_id ORDER BY bl.card_id"
+
+            cursor.execute(query, params)
+        else:
+            query = """
+                SELECT 
+                    f.loan_id, 
+                    bl.card_id,
+                    f.fine_amt, 
+                    f.paid,
+                    b.title,
+                    bl.due_date,
+                    bl.date_in
+                FROM FINES f
+                JOIN BOOK_LOANS bl ON f.loan_id = bl.loan_id
+                JOIN BOOK b ON bl.isbn = b.isbn
+                WHERE 1=1
+            """
+            params = []
+
+            if not include_paid:
+                query += " AND f.paid = FALSE"
+
+            if card_id:
+                query += " AND bl.card_id = %s"
+                params.append(card_id)
+
+            query += " ORDER BY bl.card_id, f.paid, bl.due_date"
+
+            cursor.execute(query, params)
+
+        return cursor.fetchall()
+
+
+def get_user_fines(card_id: str, include_paid: bool = False) -> decimal.Decimal:
+    """
+    Get the total sum of fines for a specific borrower.
+
+    Args:
+        card_id (str): The card ID of the borrower
+        include_paid (bool): Whether to include paid fines (default: False)
+
+    Returns:
+        decimal.Decimal: The sum of fines for the specified borrower
+
+    Raises:
+        Exception: If a database error occurs
+    """
+    with connection.cursor() as cursor:
+        query = """
+            SELECT COALESCE(SUM(f.fine_amt), 0) AS total_fine
+            FROM FINES f
+            JOIN BOOK_LOANS bl ON f.loan_id = bl.loan_id
+            WHERE bl.card_id = %s
+        """
+        params = [card_id]
+
+        if not include_paid:
+            query += " AND f.paid = FALSE"
+
+        cursor.execute(query, params)
+        result = cursor.fetchone()
+        return decimal.Decimal(result[0]) if result else decimal.Decimal("0.00")
+
+
+def get_fines_dict(include_paid: bool = False) -> Dict[str, decimal.Decimal]:
+    """
+    Get dictionary of fines summed by borrower.
+
+    Args:
+        include_paid (bool): Whether to include paid fines (default: False)
+
+    Returns:
+        Dict[str, decimal.Decimal]: Dictionary mapping card_id to total fine amount
+
+    Raises:
+        Exception: If a database error occurs
+    """
+    fines_result = get_fines(include_paid=include_paid, sum=True)
+    return {card_id: decimal.Decimal(amount) for card_id, amount in fines_result}
+
+
+def pay_loan_fine(loan_id: str) -> dict:
+    """
+    Process payment for a single loan's fine.
+
+    Args:
+        loan_id (str): The ID of the loan to pay
+
+    Returns:
+        dict: Dictionary with payment confirmation
 
     Raises:
         ValidationError: If book isn't returned or fine already paid
+        Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
         # Verify book was returned
@@ -260,55 +377,19 @@ def pay_loan_fine(loan_id: str) -> dict:
         return {"loan_id": loan_id, "amount_paid": float(fine[0]), "message": f"Paid ${fine[0]:.2f} for loan {loan_id}"}
 
 
-def get_borrower_fines(card_id: str, show_paid: bool = False) -> List[dict]:
-    """
-    Get fines for a borrower with filtering options
-
-    Args:
-        card_id: Borrower's card ID
-        show_paid: Whether to include paid fines (default: False)
-
-    Returns:
-        List of dictionaries containing fine details
-    """
-    with connection.cursor() as cursor:
-        query = """
-            SELECT 
-                f.loan_id, 
-                f.fine_amt, 
-                f.paid,
-                b.title,
-                bl.due_date,
-                bl.date_in
-            FROM FINES f
-            JOIN BOOK_LOANS bl ON f.loan_id = bl.loan_id
-            JOIN BOOK b ON bl.isbn = b.isbn
-            WHERE bl.card_id = %s
-        """
-        params = [card_id]
-
-        if not show_paid:
-            query += " AND f.paid = FALSE"
-
-        query += " ORDER BY f.paid, bl.due_date"
-
-        cursor.execute(query, params)
-        columns = [col[0] for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-
 def pay_borrower_fines(card_id: str) -> dict:
     """
-    Process payment for all unpaid fines of a borrower
+    Process payment for all unpaid fines of a borrower.
 
     Args:
-        card_id: Borrower's card ID
+        card_id (str): Borrower's card ID
 
     Returns:
-        Dictionary with payment summary
+        dict: Dictionary with payment summary
 
     Raises:
-        ValidationError: If borrower has unreturned books
+        ValidationError: If borrower has unreturned books or no fines
+        Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
         # Check for unreturned books
@@ -329,7 +410,7 @@ def pay_borrower_fines(card_id: str) -> dict:
             raise ValidationError("No payable fines found")
 
         # Pay each fine individually
-        total: decimal.Decimal = decimal.Decimal(0)
+        total = decimal.Decimal("0.00")
         for loan_id, amount in fines:
             cursor.execute(
                 """
@@ -349,9 +430,10 @@ def pay_borrower_fines(card_id: str) -> dict:
         }
 
 
-def update_fines(current_date: date) -> None:
+def update_fines(current_date: date = date.today()) -> None:
     """
     Update the FINES table for late books based on the current date.
+
     - Fines are $0.25 per day.
     - Inserts new fines for late loans without records.
     - Updates existing unpaid fines if the amount differs.
@@ -359,6 +441,9 @@ def update_fines(current_date: date) -> None:
 
     Args:
         current_date (date): The date used to calculate fines for unreturned books.
+
+    Raises:
+        Exception: If a database error occurs
     """
     with transaction.atomic():
         with connection.cursor() as cursor:
@@ -375,7 +460,7 @@ def update_fines(current_date: date) -> None:
             cursor.execute(sql, [current_date])
             loans = cursor.fetchall()
 
-            # Step 2: Process loans in Python and prepare bulk operations
+            # Process loans in Python and prepare bulk operations
             final_inserts: List[Tuple[int, float, bool]] = []  # (Loan_id, Fine_amt, Paid)
             final_updates: List[Tuple[float, int]] = []  # (Fine_amt, Loan_id)
 
@@ -395,8 +480,6 @@ def update_fines(current_date: date) -> None:
                 elif not paid and existing_fine != calculated_fine:
                     final_updates.append((calculated_fine, loan_id))
 
-                # Else paid is True or fine is already updated
-
             # Execute the inserts and updates
             if final_inserts:
                 insert_sql = """
@@ -413,56 +496,22 @@ def update_fines(current_date: date) -> None:
                 cursor.executemany(update_sql, final_updates)
 
 
-def get_fine_summary(card_id: str = None) -> dict:
-    """
-    Get summary of fines (total paid/unpaid)
-
-    Args:
-        card_id: Optional borrower card ID to filter by
-
-    Returns:
-        Dictionary with fine summary
-    """
-    with connection.cursor() as cursor:
-        query = """
-            SELECT 
-                COALESCE(SUM(CASE WHEN paid = TRUE THEN fine_amt ELSE 0 END), 0) AS paid_total,
-                COALESCE(SUM(CASE WHEN paid = FALSE THEN fine_amt ELSE 0 END), 0) AS unpaid_total
-            FROM FINES
-        """
-        params = []
-
-        if card_id:
-            query += """
-                WHERE loan_id IN (
-                    SELECT loan_id FROM BOOK_LOANS 
-                    WHERE card_id = %s
-                )
-            """
-            params.append(card_id)
-
-        cursor.execute(query, params)
-        result = cursor.fetchone()
-
-        return {"paid_total": float(result[0]), "unpaid_total": float(result[1])}
-
-
 def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]:
     """
     Create a new borrower record.
 
     Args:
-        ssn: Social security number
-        bname: Borrower name
-        address: Borrower address
-        phone: Optional phone number
+        ssn (str): Social security number
+        bname (str): Borrower name
+        address (str): Borrower address
+        phone (str, optional): Phone number
 
     Returns:
-        Tuple containing (card_id, bname)
+        Tuple[str, str]: Tuple containing (card_id, bname)
 
     Raises:
         ValidationError: If borrower with SSN already exists
-        DatabaseError: If database operation fails
+        Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
         # Check for duplicate SSN
@@ -490,22 +539,19 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tu
         return (card_id_str, bname)
 
 
-# The rest are for creating the other rows for importing the data
-
-
 def create_book(isbn: str, title: str) -> Tuple[str, str]:
     """
     Create a new book record.
 
     Args:
-        isbn: International Standard Book Number
-        title: Book title
+        isbn (str): International Standard Book Number
+        title (str): Book title
 
     Returns:
-        Tuple containing (isbn, title)
+        Tuple[str, str]: Tuple containing (isbn, title)
 
     Raises:
-        DatabaseError: If database operation fails
+        Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
         # Insert new book
@@ -521,14 +567,13 @@ def create_author(author_name: str) -> Tuple[str, str]:
     Create a new author record.
 
     Args:
-        author_name: Author's name
+        author_name (str): Author's name
 
     Returns:
-        Tuple containing (author_id, author_name)
+        Tuple[str, str]: Tuple containing (author_id, author_name)
 
     Raises:
-        ValidationError: If author with same name already exists
-        DatabaseError: If database operation fails
+        Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
         # Generate new author_id
@@ -549,15 +594,14 @@ def create_junction(author_id: str, isbn: str) -> Tuple[str, str]:
     Create a new book-author junction record.
 
     Args:
-        author_id: Author's ID
-        isbn: Book's ISBN
+        author_id (str): Author's ID
+        isbn (str): Book's ISBN
 
     Returns:
-        Tuple containing (author_id, isbn)
+        Tuple[str, str]: Tuple containing (author_id, isbn)
 
     Raises:
-        ValidationError: If junction entry already exists
-        DatabaseError: If database operation fails
+        Exception: If a database error occurs
     """
     with connection.cursor() as cursor:
         # Insert new junction entry
