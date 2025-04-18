@@ -7,9 +7,9 @@ Contains:
  - checkout(card_id: str, isbn: str) -> str
  - search_loans(card_id: str, query: str) -> List[Tuple]
  - checkin(loan_id: str) -> str
- - get_fines(card_id: str = None, include_paid: bool = False, sum: bool = False) -> List[Tuple]
  - get_user_fines(card_id: str, include_paid: bool = False) -> Decimal
- - get_fines_dict(include_paid: bool = False) -> Dict[str, Decimal]
+ - get_fines(card_ids:list = [], include_paid: bool = False, sum: bool = False) -> List[Tuple]
+ - get_fines_dict(card_ids:list = [], include_paid: bool = False) -> Dict[str, Decimal]
  - pay_loan_fine(loan_id: str) -> dict
  - pay_borrower_fines(card_id: str) -> dict
  - update_fines(current_date: date = date.today()) -> None
@@ -209,12 +209,12 @@ def checkin(loan_id: str) -> str:
         return loan_id
 
 
-def get_fines(card_id: Optional[str] = None, include_paid: bool = False, sum: bool = False) -> List[Tuple]:
+def get_fines(card_ids: list = [], include_paid: bool = False, sum: bool = False) -> List[Tuple]:
     """
-    Get list of fines, optionally filtered by borrower.
+    Get list of fines, optionally filtered by borrowers.
 
     Args:
-        card_id (Optional[str]): The card ID of the borrower to filter by (None for all borrowers)
+        card_ids (list): List of card IDs to filter by (empty list for all borrowers)
         include_paid (bool): Whether to include paid fines (default: False)
         sum (bool): Whether to sum fines by borrower (default: False)
 
@@ -237,9 +237,10 @@ def get_fines(card_id: Optional[str] = None, include_paid: bool = False, sum: bo
             if not include_paid:
                 query += " AND f.paid = FALSE"
 
-            if card_id:
-                query += " AND bl.card_id = %s"
-                params.append(card_id)
+            if card_ids:
+                placeholders = ", ".join(["%s"] * len(card_ids))
+                query += f" AND bl.card_id IN ({placeholders})"
+                params.extend(card_ids)
 
             query += " GROUP BY bl.card_id ORDER BY bl.card_id"
 
@@ -264,9 +265,10 @@ def get_fines(card_id: Optional[str] = None, include_paid: bool = False, sum: bo
             if not include_paid:
                 query += " AND f.paid = FALSE"
 
-            if card_id:
-                query += " AND bl.card_id = %s"
-                params.append(card_id)
+            if card_ids:
+                placeholders = ", ".join(["%s"] * len(card_ids))
+                query += f" AND bl.card_id IN ({placeholders})"
+                params.extend(card_ids)
 
             query += " ORDER BY bl.card_id, f.paid, bl.due_date"
 
@@ -306,11 +308,12 @@ def get_user_fines(card_id: str, include_paid: bool = False) -> decimal.Decimal:
         return decimal.Decimal(result[0]) if result else decimal.Decimal("0.00")
 
 
-def get_fines_dict(include_paid: bool = False) -> Dict[str, decimal.Decimal]:
+def get_fines_dict(card_ids: list = [], include_paid: bool = False) -> Dict[str, decimal.Decimal]:
     """
     Get dictionary of fines summed by borrower.
 
     Args:
+        card_ids (list): List of card IDs to filter by (empty list for all borrowers)
         include_paid (bool): Whether to include paid fines (default: False)
 
     Returns:
@@ -319,7 +322,7 @@ def get_fines_dict(include_paid: bool = False) -> Dict[str, decimal.Decimal]:
     Raises:
         Exception: If a database error occurs
     """
-    fines_result = get_fines(include_paid=include_paid, sum=True)
+    fines_result = get_fines(card_ids=card_ids, include_paid=include_paid, sum=True)
     return {card_id: decimal.Decimal(amount) for card_id, amount in fines_result}
 
 

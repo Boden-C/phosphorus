@@ -33,9 +33,9 @@ def main():
      - checkout(card_id: str, isbn: str) -> str
      - search_loans(card_id: str, query: str) -> List[Tuple]
      - checkin(loan_id: str) -> str
-     - get_fines(card_id: str = None, include_paid: bool = False, sum: bool = False) -> List[Tuple]
      - get_user_fines(card_id: str, include_paid: bool = False) -> Decimal
-     - get_fines_dict(include_paid: bool = False) -> Dict[str, Decimal]
+     - get_fines(card_ids:list = [], include_paid: bool = False, sum: bool = False) -> List[Tuple]
+     - get_fines_dict(card_ids:list = [], include_paid: bool = False) -> Dict[str, Decimal]
      - pay_loan_fine(loan_id: str) -> dict
      - pay_borrower_fines(card_id: str) -> dict
      - update_fines(current_date: date = date.today()) -> None
@@ -96,14 +96,18 @@ def main():
     except Exception as e:
         log.error(f"Error searching loans: {e}\n{traceback.format_exc()}")
 
-    # Example of the new get_fines method
+    # Example of the get_fines method with single card ID in list
     try:
-        fines = get_fines(card_id)
+        fines = get_fines(card_ids=[card_id])
         log.info(f"Fines found: {len(fines)} unpaid fines")
 
         # Example with include_paid
-        all_fines = get_fines(card_id, include_paid=True)
+        all_fines = get_fines(card_ids=[card_id], include_paid=True)
         log.info(f"All fines (including paid): {len(all_fines)} fines")
+
+        # Example with multiple card IDs
+        multi_card_fines = get_fines(card_ids=["10001000", "10001001"])
+        log.info(f"Multi-card fines found: {len(multi_card_fines)} unpaid fines")
     except Exception as e:
         log.error(f"Error getting fines: {e}\n{traceback.format_exc()}")
 
@@ -118,6 +122,10 @@ def main():
     try:
         fines_dict = get_fines_dict()
         log.info(f"Fines by user: {fines_dict}")
+
+        # Example with specific card IDs
+        specific_fines_dict = get_fines_dict(card_ids=["10001000", "10001001"])
+        log.info(f"Specific fines by user: {specific_fines_dict}")
     except Exception as e:
         log.error(f"Error getting fines dictionary: {e}\n{traceback.format_exc()}")
 

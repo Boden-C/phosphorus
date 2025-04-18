@@ -162,21 +162,36 @@ def search_fines(request):
     if request.method == "GET":
         try:
             card_id = request.GET.get("card_id")
+            card_ids_str = request.GET.get("card_ids")
             include_paid = request.GET.get("include_paid", "false").lower() == "true"
             sum_only = request.GET.get("sum", "false").lower() == "true"
 
+            # Parse card_ids if provided
+            card_ids = []
+            if card_ids_str:
+                try:
+                    card_ids = json.loads(card_ids_str)
+                    if not isinstance(card_ids, list):
+                        return JsonResponse({"error": "card_ids must be a valid JSON array"}, status=400)
+                except json.JSONDecodeError:
+                    return JsonResponse({"error": "Invalid card_ids JSON format"}, status=400)
+
+            # If card_id is provided, add it to card_ids
+            if card_id and not card_ids:
+                card_ids = [card_id]
+
             if sum_only:
-                if card_id:
+                if card_id and not card_ids_str:
                     # Get sum of fines for a specific borrower
                     total = api.get_user_fines(card_id, include_paid)
                     return JsonResponse({"card_id": card_id, "total_fines": float(total)})
                 else:
-                    # Get sum of fines for all borrowers
-                    fines_dict = api.get_fines_dict(include_paid)
+                    # Get sum of fines for all borrowers or specific set of borrowers
+                    fines_dict = api.get_fines_dict(card_ids=card_ids, include_paid=include_paid)
                     return JsonResponse({"borrowers": {k: float(v) for k, v in fines_dict.items()}})
             else:
                 # Get detailed fine records
-                fines = api.get_fines(card_id, include_paid)
+                fines = api.get_fines(card_ids=card_ids, include_paid=include_paid)
 
                 # Format results as list of dictionaries for JSON
                 formatted_fines = []
@@ -194,6 +209,8 @@ def search_fines(request):
                     )
 
                 return JsonResponse({"fines": formatted_fines})
+        except ValidationError as ve:
+            return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
     else:
@@ -232,3 +249,29 @@ def pay_fine(request):
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
+
+
+@csrf_exempt
+def borrower_fines(request):
+    """
+    Get total fines for a specific borrower.
+    """
+    if request.method == "GET":
+        try:
+            card_id = request.GET.get("card_id")
+
+            if not card_id:
+                return JsonResponse({"error": "Card ID is required"}, status=400)
+
+            include_paid = request.GET.get("include_paid", "false").lower() == "true"
+
+            # Get total fines for the borrower
+            total = api.get_user_fines(card_id, include_paid)
+            return JsonResponse({"card_id": card_id, "total_fines": float(total)})
+
+        except ValidationError as ve:
+            return JsonResponse({"error": str(ve)}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    else:
+        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
