@@ -16,8 +16,24 @@ Including another URLconf
 """
 
 from django.urls import path
-from backend.views import create_borrower
+from backend.views import (
+    create_borrower,
+    create_book,
+    search_books,
+    search_loans,
+    checkout_loan,
+    checkin_loan,
+    search_fines,
+    pay_fine,
+)
 
 urlpatterns = [
-    path("api/create-borrower/", create_borrower),
+    path("api/borrower/create", create_borrower),
+    path("api/books/create", create_book),
+    path("api/books/search", search_books),
+    path("api/loans/search", search_loans),
+    path("api/loans/checkout", checkout_loan),
+    path("api/loans/checkin", checkin_loan),
+    path("api/fines/search", search_fines),
+    path("api/fines/pay", pay_fine),
 ]
