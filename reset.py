@@ -57,15 +57,17 @@ def import_data():
 
     log.info("Importing authors...")
     try:
-        with open(AUTHORS_PATH, newline="", encoding="utf-8") as f:
+        with open(AUTHORS_PATH, newline="", encoding="utf-8") as f, connection.cursor() as cursor:
             reader = csv.DictReader(f)
-            for row in reader:
-                author_name = row["Name"].strip()
-                create_author(author_name)
+            names = [row["Name"].strip() for row in reader]
+            cursor.execute("SELECT MAX(CAST(Author_id AS UNSIGNED)) FROM AUTHORS")
+            max_id = cursor.fetchone()[0] or 0
+            data = [(str(max_id + i + 1), name) for i, name in enumerate(names)]  # CHANGED
+            cursor.executemany("INSERT INTO AUTHORS (Author_id, Name) VALUES (%s, %s)", data)  # CHANGED
         imports_succeeded += 1
 
     except FileNotFoundError:
-        log.error("CSV file not found:", AUTHORS_PATH)
+        log.error("CSV file not found: %s", AUTHORS_PATH)
         imports_failed += 1
     except Exception as e:
         log.error(f"{e}\n{traceback.format_exc()}")
@@ -74,15 +76,13 @@ def import_data():
 
     log.info("Importing books...")
     try:
-        with open(BOOK_PATH, newline="", encoding="utf-8") as f:
+        with open(BOOK_PATH, newline="", encoding="utf-8") as f, connection.cursor() as cursor:
             reader = csv.DictReader(f)
-            for row in reader:
-                isbn = row["Isbn"].strip()
-                title = row["Title"].strip()
-                create_book(isbn, title)
+            entries = [(row["Isbn"].strip(), row["Title"].strip()) for row in reader]
+            cursor.executemany("INSERT INTO BOOK (Isbn, Title) VALUES (%s, %s)", entries)  # CHANGED
         imports_succeeded += 1
     except FileNotFoundError:
-        log.error("CSV file not found:", BOOK_PATH)
+        log.error("CSV file not found: %s", BOOK_PATH)
         imports_failed += 1
     except Exception as e:
         log.error(f"{e}\n{traceback.format_exc()}")
@@ -91,15 +91,13 @@ def import_data():
 
     log.info("Importing book authors...")
     try:
-        with open(BOOK_AUTHORS_PATH, newline="", encoding="utf-8") as f:
+        with open(BOOK_AUTHORS_PATH, newline="", encoding="utf-8") as f, connection.cursor() as cursor:
             reader = csv.DictReader(f)
-            for row in reader:
-                author_id = row["Author_id"].strip()
-                isbn = row["Isbn"].strip()
-                create_junction(author_id, isbn)
+            links = [(row["Author_id"].strip(), row["Isbn"].strip()) for row in reader]
+            cursor.executemany("INSERT INTO BOOK_AUTHORS (Author_id, Isbn) VALUES (%s, %s)", links)  # CHANGED
         imports_succeeded += 1
     except FileNotFoundError:
-        log.error("CSV file not found:", BOOK_AUTHORS_PATH)
+        log.error("CSV file not found: %s", BOOK_AUTHORS_PATH)
         imports_failed += 1
     except Exception as e:
         log.error(f"{e}\n{traceback.format_exc()}")
@@ -108,18 +106,23 @@ def import_data():
 
     log.info("Importing borrowers...")
     try:
-        with open(BORROWER_PATH, newline="", encoding="utf-8") as f:
+        with open(BORROWER_PATH, newline="", encoding="utf-8") as f, connection.cursor() as cursor:
             reader = csv.DictReader(f)
-            for row in reader:
+            cursor.execute("SELECT MAX(CAST(card_id AS UNSIGNED)) FROM borrower")
+            max_id = cursor.fetchone()[0] or 10000000
+            data = []
+            for i, row in enumerate(reader):
                 ssn = row["Ssn"].strip()
                 bname = row["Bname"].strip()
                 address = row["Address"].strip()
                 phone = row.get("Phone", "").strip()
-                create_borrower(ssn, bname, address, phone)
+                card_id = str(max_id + i + 1)
+                data.append((card_id, ssn, bname, address, phone))
+            cursor.executemany("INSERT INTO BORROWER (Card_id, Ssn, Bname, Address, Phone) VALUES (%s, %s, %s, %s, %s)", data)  # CHANGED
         imports_succeeded += 1
 
     except FileNotFoundError:
-        log.error("CSV file not found:", BORROWER_PATH)
+        log.error("CSV file not found: %s", BORROWER_PATH)
         imports_failed += 1
     except Exception as e:
         log.error(f"{e}\n{traceback.format_exc()}")
