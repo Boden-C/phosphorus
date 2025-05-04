@@ -1,8 +1,25 @@
-# Phosphorus
+# Phosphorus Library Management System
+
+## Design Notes
+
+### Borrower Authentication Design Decision
+
+While conceptually it would make sense for Borrowers to have user accounts for system login, this application was designed as a staff portal only. Borrowers are not implemented as users for two key reasons:
+
+1. **Database Normalization and Backward Compatibility**: Adding a foreign key from the Borrower table to the User table would break backward compatibility with existing SQL commands and queries. The application strictly maintains 3NF (Third Normal Form) while preserving the original schema structure.
+
+2. **Application Purpose**: This application is designed as a portal for library staff to use, not borrowers. All operations related to borrowers (checking out books, paying fines, etc.) are performed by librarians on behalf of borrowers.
+
+The system maintains two user types:
+
+-   **Admin**: Superuser with full system access
+-   **Librarians**: Staff users who can perform all library operations
+
+This design ensures simplicity, maintains data integrity, and preserves the original database structure.
 
 ## Description
 
-Full Django/MySQL Library Management System with fine tracking capabilities.
+Full Django/MySQL Library Management System with fine tracking capabilities and user authentication.
 
 ## File Structure
 
@@ -40,7 +57,9 @@ The `api.py` file includes the following standardized functions:
 -   `pay_loan_fine(loan_id: str) -> dict`: Pay a single loan's fine
 -   `pay_borrower_fines(card_id: str) -> dict`: Pay all fines for a borrower
 -   `update_fines(current_date: date = date.today()) -> None`: Update fines for late books
--   `create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]`: Create new borrower
+-   `create_borrower(ssn: str, bname: str, address: str, phone: str = None, username: str = None, password: str = None) -> Tuple[str, str]`: Create new borrower with optional user account
+-   `create_librarian(username: str, password: str) -> Tuple[str, str]`: Create new librarian user
+-   `create_user(id: str, username: str, password: str, group: str) -> Tuple[str, str]`: Create new Django user
 -   `create_book(isbn: str, title: str) -> Tuple[str, str]`: Create new book
 -   `create_junction(author_id: str, isbn: str) -> Tuple[str, str]`: Connect author to book
 -   `create_author(author_name: str) -> Tuple[str, str]`: Create new author
@@ -50,7 +69,8 @@ The `api.py` file includes the following standardized functions:
 The system provides the following RESTful API endpoints:
 
 -   `GET /api/borrower/fines`: Get total fines for a single borrower
--   `POST /api/borrower/create`: Create a new borrower
+-   `POST /api/borrower/create`: Create a new borrower with optional user account
+-   `POST /api/librarian/create`: Create a new librarian user
 -   `POST /api/books/create`: Create a new book
 -   `GET /api/books/search`: Search for books by title, ISBN, or author
 -   `GET /api/loans/search`: Search for loans by borrower ID
@@ -65,6 +85,7 @@ The system provides the following RESTful API endpoints:
 
 -   Includes the actual logic for handling requests and responses in the backend of the application
 -   Contains all the methods that interact with the database and can be imported for usage in other files
+-   Provides user management functions integrated with Django's authentication system
 
 ### `normalize.py`
 
@@ -92,7 +113,9 @@ The system provides the following RESTful API endpoints:
 ### `reset.py`
 
 -   Clears the database
+-   Creates default user groups and initial users
 -   Imports data from CSV files into the database
+-   Creates Django user accounts for borrowers during import
 -   Used for initializing the system
 
 ## Fine Management
@@ -103,6 +126,16 @@ The system includes robust fine management capabilities:
 -   `update_fines()` can be called manually or via cron job to calculate fines
 -   Fine reporting includes options to view paid/unpaid fines and totals by borrower
 -   Fines can be paid individually by loan or all at once for a borrower
+
+## User Management
+
+The system integrates with Django's authentication system:
+
+-   Borrowers can have associated user accounts for system login
+-   Librarians have staff-level access with special permissions
+-   User creation is integrated with borrower/librarian creation
+-   Default groups ("Borrowers" and "Librarians") organize permissions
+-   ID ranges are maintained (Borrower card IDs start at 10000000, librarian IDs at 10000)
 
 ## Installation & Setup
 

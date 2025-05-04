@@ -13,6 +13,7 @@ import django, os, sys
 from django.core.exceptions import ValidationError
 from setup.logger import log
 import traceback
+import pathlib
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
@@ -20,7 +21,7 @@ django.setup()
 
 # The modules below contain the main logic
 from backend.api import *
-from reset import clear_database, import_data
+from reset import clear_database, create_initial_groups_and_users, import_data
 
 
 def main():
@@ -39,7 +40,9 @@ def main():
      - pay_loan_fine(loan_id: str) -> dict
      - pay_borrower_fines(card_id: str) -> dict
      - update_fines(current_date: date = date.today()) -> None
-     - create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]
+     - create_borrower(card_id: str, ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]
+     - create_librarian(username: str, password: str) -> Tuple[str, str]
+     - create_user(id: str, username: str, password: str, group: str) -> Tuple[str, str]
      - create_book(isbn: str, title: str) -> Tuple[str, str]
      - create_junction(author_id: str, isbn: str) -> Tuple[str, str]
      - create_author(author_name: str) -> Tuple[str, str]
@@ -48,18 +51,34 @@ def main():
      - clear_database()
      - import_data()
     """
-    # Reset database
-    clear_database()
-    import_data()
+    # Reset database if allowed by .env.local
+    if should_reset_database():
+        log.info("Resetting database...")
+        clear_database()
+        create_initial_groups_and_users()
+        import_data()
+        # Set RESET to false to prevent unintended resets on subsequent runs
+        update_env_var("RESET", "false")
+        log.info("Database reset complete. RESET flag set to false.")
+    else:
+        log.info("Skipping database reset due to .env.local RESET=false")
+
+    # Example of creating a librarian user
+    try:
+        staff_id, username = create_librarian("librarian_test", "librarian123")
+        log.info(f"Librarian created: staff_id={staff_id}, username={username}")
+    except ValidationError as e:
+        log.warning(f"Librarian creation validation error: {e}")
+    except Exception as e:
+        log.error(f"Error creating librarian: {e}\n{traceback.format_exc()}")
 
     # Example of the create_borrower method
-    card_id: str = None
+    card_id = "ID001001"  # Using fixed card_id as specified
     try:
-        card_id, bname = create_borrower("123456789", "John Doe", "123 Main St", "555-5555")
+        card_id, bname = create_borrower(card_id, "123456789", "John Doe", "123 Main St", "555-5555")
         log.info(f"Borrower created: {card_id}, {bname}")
     except ValidationError as e:
         log.warning(f"Validation error: {e}")
-        card_id = "10001000"  # Use a fallback ID for testing
     except Exception as e:
         log.error(f"Error creating borrower: {e}\n{traceback.format_exc()}")
 
@@ -106,7 +125,7 @@ def main():
         log.info(f"All fines (including paid): {len(all_fines)} fines")
 
         # Example with multiple card IDs
-        multi_card_fines = get_fines(card_ids=["10001000", "10001001"])
+        multi_card_fines = get_fines(card_ids=["ID001001", "10001001"])
         log.info(f"Multi-card fines found: {len(multi_card_fines)} unpaid fines")
     except Exception as e:
         log.error(f"Error getting fines: {e}\n{traceback.format_exc()}")
@@ -124,7 +143,7 @@ def main():
         log.info(f"Fines by user: {fines_dict}")
 
         # Example with specific card IDs
-        specific_fines_dict = get_fines_dict(card_ids=["10001000", "10001001"])
+        specific_fines_dict = get_fines_dict(card_ids=["ID001001", "10001001"])
         log.info(f"Specific fines by user: {specific_fines_dict}")
     except Exception as e:
         log.error(f"Error getting fines dictionary: {e}\n{traceback.format_exc()}")
@@ -162,6 +181,74 @@ def main():
         log.warning(f"Payment validation error: {e}")
     except Exception as e:
         log.error(f"Error paying borrower fines: {e}\n{traceback.format_exc()}")
+
+
+def update_env_var(key: str, value: str) -> bool:
+    """
+    Updates or adds an environment variable in the .env.local file.
+
+    Args:
+        key: Environment variable name
+        value: Environment variable value
+
+    Returns:
+        bool: True if update was successful, False otherwise
+    """
+    env_path = pathlib.Path(__file__).parent / ".env.local"
+
+    # Read existing content or initialize empty if file doesn't exist
+    content = {}
+    if env_path.exists():
+        try:
+            with env_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        content[k.strip()] = v.strip()
+        except Exception as e:
+            log.warning(f"Error reading .env.local: {e}")
+            return False
+
+    # Update the specified key
+    content[key] = value
+
+    # Write back to file
+    try:
+        with env_path.open("w", encoding="utf-8") as f:
+            for k, v in content.items():
+                f.write(f"{k}={v}\n")
+        return True
+    except Exception as e:
+        log.warning(f"Error writing to .env.local: {e}")
+        return False
+
+
+def should_reset_database() -> bool:
+    """
+    Determines whether to reset the database based on .env.local and RESET variable.
+    Returns True if reset should occur, False otherwise.
+    """
+    env_path = pathlib.Path(__file__).parent / ".env.local"
+    if not env_path.exists():
+        return True
+    try:
+        with env_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                if key.strip() == "RESET":
+                    if value.strip().lower() == "false":
+                        return False
+    except Exception as e:
+        log.warning(f"Could not read .env.local: {e}")
+    return True
 
 
 if __name__ == "__main__":

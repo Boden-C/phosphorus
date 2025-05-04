@@ -13,7 +13,9 @@ Contains:
  - pay_loan_fine(loan_id: str) -> dict
  - pay_borrower_fines(card_id: str) -> dict
  - update_fines(current_date: date = date.today()) -> None
- - create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]
+ - create_borrower(card_id: str, ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]
+ - create_librarian(username: str, password: str) -> Tuple[str, str]
+ - create_user(id: str, username: str, password: str, group: str) -> Tuple[str, str]
  - create_book(isbn: str, title: str) -> Tuple[str, str]
  - create_junction(author_id: str, isbn: str) -> Tuple[str, str]
  - create_author(author_name: str) -> Tuple[str, str]
@@ -24,6 +26,7 @@ import decimal
 from typing import List, Tuple, Dict, Optional
 from django.db import connection, transaction
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User, Group
 
 
 def search_books(query: str) -> List[Tuple]:
@@ -499,25 +502,89 @@ def update_fines(current_date: date = date.today()) -> None:
                 cursor.executemany(update_sql, final_updates)
 
 
-def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]:
+def create_user(id: str, username: str, password: str, group: str) -> Tuple[str, str]:
+    """
+    Create a new Django user and assign it to a group. If the username exists, append a number to make it unique.
+
+    Args:
+        id (str): Unique identifier for the user (card_id for borrowers, staff_id for librarians)
+        username (str): Username for login
+        password (str): Password for login
+        group (str): Group name to assign the user to ("Borrowers" or "Librarians")
+
+    Returns:
+        Tuple[str, str]: Tuple containing (id, username)
+
+    Raises:
+        ValidationError: If user creation fails
+    """
+    base_username = username
+    suffix = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base_username}{suffix}"
+        suffix += 1
+    try:
+        is_staff = group == "Librarians"
+        user = User.objects.create_user(username=username, password=password, is_staff=is_staff)
+        try:
+            group_obj = Group.objects.get(name=group)
+            user.groups.add(group_obj)
+        except Group.DoesNotExist:
+            group_obj = Group.objects.create(name=group)
+            user.groups.add(group_obj)
+        return (id, username)
+    except Exception as e:
+        User.objects.filter(username=username).delete()
+        raise ValidationError(f"Failed to create user: {str(e)}")
+
+
+def create_librarian(username: str, password: str) -> Tuple[str, str]:
+    """
+    Create a new librarian user.
+
+    Args:
+        username (str): Username for login
+        password (str): Password for login
+
+    Returns:
+        Tuple[str, str]: Tuple containing (staff_id, username)
+
+    Raises:
+        ValidationError: If username already exists
+        Exception: If a database error occurs
+    """
+    with connection.cursor() as cursor:
+        # Generate new staff_id
+        cursor.execute(
+            "SELECT MAX(CAST(SUBSTRING(username, 5) AS UNSIGNED)) FROM auth_user WHERE username LIKE 'lib_%'"
+        )
+        result = cursor.fetchone()
+        next_id = (int(result[0]) + 1) if result[0] else 10000
+        staff_id = str(next_id)
+
+        # Create user with librarian privileges
+        return create_user(staff_id, username, password, "Librarians")
+
+
+def create_borrower(card_id: str, ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]:
     """
     Create a new borrower record.
 
     Args:
-        ssn (str): Social security number
+        card_id (str): Card ID for the borrower
+        ssn (str): Social Security Number or other identifier
         bname (str): Borrower name
         address (str): Borrower address
-        phone (str, optional): Phone number
+        phone (str, optional): Borrower phone number
 
     Returns:
-        Tuple[str, str]: Tuple containing (card_id, bname)
+        Tuple[str, str]: A tuple containing (card_id, borrower_name)
 
     Raises:
-        ValidationError: If borrower with SSN already exists
-        Exception: If a database error occurs
+        ValidationError: If borrower with SSN already exists or the card_id is already in use
     """
     with connection.cursor() as cursor:
-        # Check for duplicate SSN
+        # Check if borrower with SSN already exists
         cursor.execute(
             "SELECT card_id FROM borrower WHERE ssn = %s",
             [ssn],
@@ -525,21 +592,24 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None) -> Tu
         if cursor.fetchone():
             raise ValidationError(f"Borrower with SSN {ssn} already exists")
 
-        # Generate new card_id
-        cursor.execute("SELECT MAX(CAST(card_id AS UNSIGNED)) FROM borrower")
-        result = cursor.fetchone()
-        next_card_id = (int(result[0]) + 1) if result[0] else 10000000
-        card_id_str = str(next_card_id).zfill(8)
+        # Check if card_id is already in use
+        cursor.execute(
+            "SELECT card_id FROM borrower WHERE card_id = %s",
+            [card_id],
+        )
+        if cursor.fetchone():
+            raise ValidationError(f"Card ID {card_id} is already in use")
 
-        # Insert new borrower
+        # Insert new borrower with provided card_id
         cursor.execute(
             """
             INSERT INTO borrower (card_id, ssn, bname, address, phone)
             VALUES (%s, %s, %s, %s, %s)
             """,
-            [card_id_str, ssn, bname, address, phone],
+            [card_id, ssn, bname, address, phone or ""],
         )
-        return (card_id_str, bname)
+
+        return card_id, bname
 
 
 def create_book(isbn: str, title: str) -> Tuple[str, str]:

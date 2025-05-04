@@ -14,16 +14,44 @@ from backend import api
 
 @csrf_exempt
 def create_borrower(request):
+    """Create a new borrower from REST API endpoint"""
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            ssn = data.get("ssn")
+            bname = data.get("bname")
+            address = data.get("address")
+            phone = data.get("phone")
+
+            card_id, bname = api.create_borrower(ssn=ssn, bname=bname, address=address, phone=phone)
+
+            return JsonResponse({"message": "Borrower created", "card_id": card_id, "name": bname})
+
+        except ValidationError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+        except Exception as e:
+            log.error(f"Error creating borrower: {e}")
+            return JsonResponse({"error": "Failed to create borrower"}, status=500)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def create_librarian(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body) if request.body else request.POST
-            card_id, bname = api.create_borrower(
-                ssn=data.get("ssn"),
-                bname=data.get("bname"),
-                address=data.get("address"),
-                phone=data.get("phone"),
+            username = data.get("username")
+            password = data.get("password")
+
+            if not username or not password:
+                return JsonResponse({"error": "Username and password are required"}, status=400)
+
+            staff_id, username = api.create_librarian(username, password)
+            return JsonResponse(
+                {"message": "Librarian created successfully", "staff_id": staff_id, "username": username}
             )
-            return JsonResponse({"message": "Borrower created", "card_id": card_id, "name": bname})
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
