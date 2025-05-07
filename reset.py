@@ -49,43 +49,46 @@ def main():
 
 def clear_database():
     """
-    Clear the database by deleting all records from specified tables,
-    including Django's auth tables.
+    Drop all tables, re-import schema from schema.sql, and run Django migrations.
     """
-    log.info("Clearing database (including auth tables)...")
+    log.info("Dropping all tables, re-importing schema, and running migrations...")
     try:
         with connection.cursor() as cursor:
-            # Disable FK checks to truncate tables with dependencies
+            # Get all table names
+            cursor.execute("SHOW TABLES;")
+            tables = [row[0] for row in cursor.fetchall()]
+            # Disable FK checks
             cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
-
-            # Truncate your application tables
-            cursor.execute("TRUNCATE TABLE book_authors;")
-            cursor.execute("TRUNCATE TABLE book_loans;")
-            cursor.execute("TRUNCATE TABLE fines;")
-            cursor.execute("TRUNCATE TABLE borrower;")
-            cursor.execute("TRUNCATE TABLE authors;")
-            cursor.execute("TRUNCATE TABLE book;")
-
-            # Truncate Django auth tables
-            cursor.execute("TRUNCATE TABLE auth_user_groups;")
-            cursor.execute("TRUNCATE TABLE auth_user_user_permissions;")
-            cursor.execute("TRUNCATE TABLE auth_group_permissions;")
-            cursor.execute("TRUNCATE TABLE auth_permission;")
-            cursor.execute("TRUNCATE TABLE auth_group;")
-            cursor.execute("TRUNCATE TABLE auth_user;")
-
-            # Truncate Django admin/session/contenttypes tables
-            cursor.execute("TRUNCATE TABLE django_admin_log;")
-            cursor.execute("TRUNCATE TABLE django_content_type;")
-            cursor.execute("TRUNCATE TABLE django_migrations;")
-            cursor.execute("TRUNCATE TABLE django_session;")
-
-            # Re-enable FK checks
+            for table in tables:
+                cursor.execute(f"DROP TABLE IF EXISTS `{table}`;")
             cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-        log.info("Database cleared successfully.")
+        log.info("All tables dropped.")
     except Exception as e:
-        log.error("Error clearing database: %s\n%s", str(e), traceback.format_exc())
-        # Exit if clearing fails, as subsequent steps might behave unexpectedly
+        log.error("Error dropping tables: %s\n%s", str(e), traceback.format_exc())
+        sys.exit(1)
+
+    # Re-import schema from schema.sql
+    schema_path = os.path.join(os.path.dirname(__file__), "setup", "schema.sql")
+    try:
+        with open(schema_path, encoding="utf-8") as f, connection.cursor() as cursor:
+            sql = f.read()
+            for statement in sql.split(";"):
+                stmt = statement.strip()
+                if stmt:
+                    cursor.execute(stmt)
+        log.info("Schema imported from schema.sql.")
+    except Exception as e:
+        log.error("Error importing schema: %s\n%s", str(e), traceback.format_exc())
+        sys.exit(1)
+
+    # Run Django migrations
+    try:
+        import subprocess
+
+        subprocess.check_call([sys.executable, "manage.py", "migrate"])
+        log.info("Django migrations applied.")
+    except Exception as e:
+        log.error("Error running migrations: %s\n%s", str(e), traceback.format_exc())
         sys.exit(1)
 
 

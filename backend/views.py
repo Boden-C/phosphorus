@@ -10,6 +10,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
 import json
 from backend import api
+from setup.logger import log
+import traceback
 
 
 @csrf_exempt
@@ -31,7 +33,7 @@ def create_borrower(request):
             return JsonResponse({"error": str(e)}, status=400)
 
         except Exception as e:
-            log.error(f"Error creating borrower: {e}")
+            log(f"Exception in create_borrower: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": "Failed to create borrower"}, status=500)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -55,6 +57,7 @@ def create_librarian(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in create_librarian: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
@@ -87,6 +90,7 @@ def create_book(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in create_book: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
@@ -106,6 +110,7 @@ def search_books(request):
 
             return JsonResponse({"books": books})
         except Exception as e:
+            log(f"Exception in search_books: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
@@ -139,6 +144,7 @@ def search_loans(request):
 
             return JsonResponse({"loans": loans})
         except Exception as e:
+            log(f"Exception in search_loans: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
@@ -160,6 +166,7 @@ def checkout_loan(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in checkout_loan: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
@@ -180,6 +187,7 @@ def checkin_loan(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in checkin_loan: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
@@ -240,6 +248,7 @@ def search_fines(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in search_fines: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
@@ -274,6 +283,7 @@ def pay_fine(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in pay_fine: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
@@ -300,6 +310,7 @@ def borrower_fines(request):
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
+            log(f"Exception in borrower_fines: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only GET requests are allowed"}, status=405)

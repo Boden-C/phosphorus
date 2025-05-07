@@ -6,6 +6,8 @@ from django.http import JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_exempt
 import json
+from setup.logger import log
+import traceback
 
 
 @csrf_exempt
@@ -47,6 +49,7 @@ def login_view(request):
                 return JsonResponse({"error": "Invalid credentials"}, status=401)
 
         except Exception as e:
+            log(f"Exception in login_view: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     else:
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
