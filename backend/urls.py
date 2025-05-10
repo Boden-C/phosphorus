@@ -25,7 +25,14 @@ from backend.views import (
     checkin_loan,
 )
 from backend.auth_views import login_view, logout_view, unauthorized_view
+from .auth_views import login_view, logout_view, unauthorized_view, me_view
+from django.contrib.auth.decorators import login_required, user_passes_test
+from .auth_views import unauthorized_view
 
+staff_required = login_required(
+    user_passes_test(lambda u: u.is_staff, login_url="/api/auth/unauthorized"),
+    login_url="/api/auth/unauthorized"
+)
 
 # Staff permission check
 def is_staff(user):
@@ -122,4 +129,5 @@ urlpatterns = [
     #   - Body: {"loan_id": str}
     #   - Response: {"message": str, "loan_id": str} or {"error": str}
     path("api/loans/checkin", login_required(user_passes_test(is_staff)(checkin_loan)), name="checkin_loan"),
+    path("api/auth/me",           me_view,           name="me"),
 ]

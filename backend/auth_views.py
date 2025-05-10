@@ -8,6 +8,25 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from setup.logger import log
 import traceback
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def me_view(request):
+    """
+    GET /api/auth/me
+    Returns basic info about the currently logged-in user.
+    """
+    user = request.user
+    return JsonResponse({
+        "success": True,
+        "user": {
+            "username":     user.username,
+            "is_staff":     user.is_staff,
+            "is_superuser": user.is_superuser,
+            "id":           user.id,
+        }
+    })
 
 
 @csrf_exempt
