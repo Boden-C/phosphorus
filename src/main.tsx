@@ -8,3 +8,15 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// MAIN
+import { runTests } from './main.test.ts'
+
+try {
+  // runTests()
+}
+catch (error) {
+  // Print traceback
+  console.error(error)
+  console.trace()
+}

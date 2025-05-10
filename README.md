@@ -1,175 +1,181 @@
 # Phosphorus Library Management System
 
-Phosphorus is a Django/MySQL-based library management system designed for efficient staff operations, robust fine tracking, and secure user authentication. The backend provides a comprehensive API for managing books, borrowers, loans, and fines, with a focus on maintainability, data integrity, and ease of use for library staff.
+Phosphorus is a Django/MySQL-based library management system for efficient staff operations, robust fine tracking, and secure user authentication. The backend provides a comprehensive API for managing books, borrowers, loans, and fines, with a focus on maintainability, data integrity, and ease of use for library staff.
 
-### Borrower Authentication Design
+## API Endpoints
 
-Borrowers are not implemented as system users. All borrower-related operations (checkout, fine payment, etc.) are performed by staff on their behalf. This is because it is not possible to add the authentication for Borrowers while still maintaining backwards compatability and 3NF.
+All endpoints are under `/api/` except for the Django admin interface.
 
-The system maintains two user types:
+### Authentication
 
-- **Admin**: Superuser with full system access
-- **Librarians**: Staff users who perform all library operations
+-   `POST /api/auth/login` — Authenticate user and start session
+    -   Body: `{ "username": str, "password": str }`
+    -   Response: `{ "message": str, "username": str, "id": int }` or `{ "error": str }`
+-   `POST /api/auth/logout` — Log out current user and end session
+    -   Response: `{ "message": str }`
+-   `GET /api/auth/unauthorized` — Always returns 401 unauthorized
+    -   Response: `{ "error": "Unauthorized" }`
+
+### Books
+
+-   `GET /api/books/search` — Search for books by title, ISBN, or author
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "books": [{ "isbn": str, "title": str, "authors": [str] }], "total": int, "page": int }`
+-   `GET /api/books/search_with_loan` — Search for books with their current loan status
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "results": [[{ "isbn": str, "title": str, "authors": [str] }, {loan or null}]], "total": int, "page": int }`
+-   `GET /api/books/get` — Get a single book by ISBN
+    -   Query: `?isbn=...`
+    -   Response: `{ "isbn": str, "title": str, "authors": [str] }` or `{ "error": str }`
+
+### Borrowers
+
+-   `POST /api/borrower/create` — Create a new borrower
+    -   Body: `{ "ssn": str, "bname": str, "address": str, "phone"?: str, "card_id"?: str }`
+    -   Response: `{ "message": str, "card_id": str, "name": str }` or `{ "error": str }`
+-   `GET /api/borrower/search` — Search for borrowers
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "borrowers": [{ "card_id": str, "ssn": str, "bname": str, "address": str, "phone": str }], "total": int, "page": int }`
+-   `GET /api/borrower/search_with_fine` — Search for borrowers with their total fines
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "results": [[borrower, total_fines]], "total": int, "page": int }`
+-   `GET /api/borrower/fines` — Get total fines for a borrower
+    -   Query: `?card_id=...&include_paid=true|false`
+    -   Response: `{ "card_id": str, "total_fines": float }` or `{ "error": str }`
+
+### Librarians
+
+-   `POST /api/librarian/create` — Create a new librarian user
+    -   Body: `{ "username": str, "password": str }`
+    -   Response: `{ "message": str, "username": str, "id": int }` or `{ "error": str }`
+
+### Loans
+
+-   `GET /api/loans/search` — Search for loans
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "loans": [{ "loan_id": str, "isbn": str, "card_id": str, "date_out": str, "due_date": str, "date_in": str, "fine_amt": float, "paid": bool }], "total": int, "page": int }`
+-   `GET /api/loans/search_with_book` — Search for loans with book details
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "results": [[loan, book]], "total": int, "page": int }`
+-   `POST /api/loans/checkout` — Check out a book
+    -   Body: `{ "card_id": str, "isbn": str }`
+    -   Response: `{ "message": str, "loan_id": str }` or `{ "error": str }`
+-   `POST /api/loans/checkin` — Check in a book
+    -   Body: `{ "loan_id": str }`
+    -   Response: `{ "message": str, "loan_id": str }` or `{ "error": str }`
+
+### Admin
+
+-   `/admin/` — Django admin interface
+
+## Pagination
+
+All search endpoints require the following pagination parameters:
+
+-   `page`: Page number (1-indexed)
+-   `limit`: Number of results per page
+
+These parameters are required to ensure proper API behavior and prevent excessive data transfers.
 
 ## File Structure
 
 ```
 root/
   backend/          # Backend Django application
-    api.py          # Contains the database interaction methods
-    settings.py     # Config for the Django backend settings
-    urls.py         # Defines the URL patterns for the HTTP endpoints
-    views.py        # Defines the HTTP endpoints
+    api.py          # Core API logic
+    settings.py     # Django backend settings
+    urls.py         # URL patterns for HTTP endpoints
+    views.py        # HTTP endpoint handlers
     database/       # Database models and commands
   setup/
-    data/           # Directory to hold raw input data for normalization
-    output/         # Directory to store the normalized output data
+    data/           # Raw input data for normalization
+    output/         # Normalized output data
     schema.sql      # SQL schema definition
-    normalize.py    # Script responsible for data normalization
-    validate.py     # Script responsible for data validation
+    normalize.py    # Data normalization script
+    validate.py     # Data validation script
   manage.py         # Django administrative script
-  main.py           # Main entry point for an example usage of the API
-  reset.py          # Script for resetting the database and importing data
+  main.py           # Example API usage
+  reset.py          # Database reset and data import
   requirements.txt  # Python package dependencies
 ```
 
-## API Methods
+## API Methods (backend/api.py)
 
-The `api.py` file includes the following standardized functions:
+-   `search_books(query: Query) -> Results[Book]`
+-   `search_books_with_loan(query: Query) -> Results[Tuple[Book, Optional[Loan]]]`
+-   `get_book(isbn: str) -> Book`
+-   `search_loans(query: Query) -> Results[Loan]`
+-   `search_loans_with_book(query: Query) -> Results[Tuple[Loan, Book]]`
+-   `search_borrowers(query: Query) -> Results[Borrower]`
+-   `search_borrowers_with_fine(card_id: str, query: Query) -> Results[Tuple[Borrower, Decimal]]`
+-   `checkout(card_id: str, isbn: str) -> Loan`
+-   `checkin(loan_id: str) -> Loan`
+-   `get_user_fines(card_id: str, include_paid: bool = False) -> Decimal`
+-   `get_fines(card_ids: list = [], include_paid: bool = False, sum: bool = False) -> List[Loan]`
+-   `get_fines_grouped(card_ids: list = [], include_paid: bool = False) -> Dict[str, Decimal]`
+-   `pay_loan_fine(loan_id: str) -> Loan`
+-   `pay_borrower_fines(card_id: str) -> List[Loan]`
+-   `update_fines(current_date: date = date.today()) -> None`
+-   `create_borrower(ssn: str, bname: str, address: str, phone: str = None, card_id: str = None) -> Borrower`
+-   `create_librarian(username: str, password: str) -> User`
+-   `create_user(username: str, password: str, group: str) -> User`
+-   `create_book(isbn: str, title: str, authors: List[str] = []) -> Book`
 
-- `search_books(query: str) -> List[Tuple]`: Search for books by title, ISBN, or author name
-- `checkout(card_id: str, isbn: str) -> str`: Check out a book for a borrower
-- `search_loans(card_id: str, query: str) -> List[Tuple]`: Search book loans by borrower ID
-- `checkin(loan_id: str) -> str`: Check in a book
-- `get_user_fines(card_id: str, include_paid: bool = False) -> Decimal`: Get sum of fines for a borrower
-- `get_fines(card_ids:list = [], include_paid: bool = False, sum: bool = False) -> List[Tuple]`: Get list of fines
-- `get_fines_dict(card_ids:list = [], include_paid: bool = False) -> Dict[str, Decimal]`: Get dictionary of fines by borrower
-- `pay_loan_fine(loan_id: str) -> dict`: Pay a single loan's fine
-- `pay_borrower_fines(card_id: str) -> dict`: Pay all fines for a borrower
-- `update_fines(current_date: date = date.today()) -> None`: Update fines for late books
-- `create_borrower(ssn: str, bname: str, address: str, phone: str = None, username: str = None, password: str = None) -> Tuple[str, str]`: Create new borrower with optional user account
-- `create_librarian(username: str, password: str) -> Tuple[str, str]`: Create new librarian user
-- `create_user(id: str, username: str, password: str, group: str) -> Tuple[str, str]`: Create new Django user
-- `create_book(isbn: str, title: str) -> Tuple[str, str]`: Create new book
-- `create_junction(author_id: str, isbn: str) -> Tuple[str, str]`: Connect author to book
-- `create_author(author_name: str) -> Tuple[str, str]`: Create new author
+## Data Model Notes
 
-## HTTP Endpoints
-
-The system provides the following RESTful API endpoints (see [backend/urls.py](backend/urls.py)):
-
-- `POST /api/auth/login`: Authenticate user and start session
-- `POST /api/auth/logout`: Log out current user and end session
-- `GET /api/auth/unauthorized`: Always returns 401 unauthorized
-- `GET /api/borrower/fines`: Get total fines for a single borrower
-- `POST /api/borrower/create`: Create a new borrower with optional user account
-- `POST /api/librarian/create`: Create a new librarian user
-- `POST /api/books/create`: Create a new book
-- `GET /api/books/search`: Search for books by title, ISBN, or author
-- `GET /api/loans/search`: Search for loans by borrower ID
-- `POST /api/loans/checkout`: Check out a book
-- `POST /api/loans/checkin`: Check in a book
-- `GET /api/fines/search`: Search for fines, optionally filtered by multiple borrowers
-- `POST /api/fines/pay`: Pay fines for a loan or borrower
-
-## Files
-
-### `api.py`
-
-- Implements backend logic for all database operations
-- Provides user management integrated with Django authentication
-
-### `normalize.py`
-
-- Reads and normalizes raw CSV data
-- Calls `validate.py` for data integrity
-- Outputs cleaned files
-- Standardizes author name formatting
-
-### `validate.py`
-
-- Validates processed CSV files
-- Checks ISBN, author uniqueness, borrower completeness, and formatting
-
-### `main.py`
-
-- Demonstrates example API usage and error handling
-- Serves as a testing playground
-
-### `reset.py`
-
-- Resets the database and imports data
-- Creates default user groups and initial users
-- Used for system initialization
+-   `Book.authors` is a list of strings (author names).
+-   `Loan.date_out`, `Loan.due_date`, and `Loan.date_in` are of type `date` or `None`.
 
 ## Fine Management
 
-- Fines are calculated at $0.25 per day for late books
-- `update_fines()` can be run manually or scheduled
-- Fine reporting supports paid/unpaid status and borrower summaries
-- Fines can be paid per loan or in bulk for a borrower
+-   Fines are $0.25 per day for late books
+-   `update_fines()` can be run manually or scheduled
+-   Fine reporting supports paid/unpaid status and borrower summaries
+-   Fines can be paid per loan or in bulk for a borrower
 
 ## User Management
 
-The system integrates with Django's authentication system:
-
-- Librarians have staff-level access and permissions
-- Admins have full system access
-- User creation is integrated with librarian and borrower creation as needed
-- Default groups ("Librarians") organize permissions
+-   Librarians have staff-level access and permissions
+-   Admins have full system access
+-   User creation is integrated with librarian and borrower creation as needed
+-   Default groups ("Librarians") organize permissions
 
 ## Installation & Setup
 
-1. Make sure you have installed Python 3, MySQL, and have cloned the repository:
-
-   ```sh
-   python --version
-   mysql --version
-   git clone https://github.com/Boden-C/phosphorus
-   cd phosphorus
-   ```
+1. Install Python 3, MySQL, and clone the repository:
+    ```sh
+    python --version
+    mysql --version
+    git clone https://github.com/Boden-C/phosphorus
+    cd phosphorus
+    ```
 2. Create and activate a virtual environment:
-
-   ```sh
-   python -m venv .venv
-   source .venv/bin/activate  # On macOS/Linux
-   .venv\Scripts\activate     # On Windows
-   ```
+    ```sh
+    python -m venv .venv
+    source .venv/bin/activate  # On macOS/Linux
+    .venv\Scripts\activate     # On Windows
+    ```
 3. Install dependencies:
-
-   ```sh
-   pip install -r requirements.txt
-   ```
-4. Enter into MySQL:
-
-   ```sh
-   mysql -u root  # -p if you have password
-   ```
-5. Create the database and the user:
-
-   ```sql
-   CREATE DATABASE IF NOT EXISTS phosphorus_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   CREATE USER 'phosphorus_user'@'localhost' IDENTIFIED BY '';  -- Default to empty password
-   GRANT ALL PRIVILEGES ON phosphorus_db.* TO 'phosphorus_user'@'localhost';
-   FLUSH PRIVILEGES;
-   exit
-   ```
-6. Setup the database:
-
-   ```sh
-   mysql -u phosphorus_user phosphorus_db < setup/schema.sql
-   ```
-
-   Or if you are using Windows Powershell:
-
-   ```pwsh
-   Get-Content setup/schema.sql | mysql -u phosphorus_user phosphorus_db  # On Windows Powershell
-   ```
-7. Update and confirm Django [settings.py](./api/settings.py):
-
-   ```sh
-   python manage.py migrate
-   ```
+    ```sh
+    pip install -r requirements.txt
+    ```
+4. Enter MySQL and create the database/user:
+    ```sh
+    mysql -u root
+    CREATE DATABASE IF NOT EXISTS phosphorus_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'phosphorus_user'@'localhost' IDENTIFIED BY '';
+    GRANT ALL PRIVILEGES ON phosphorus_db.* TO 'phosphorus_user'@'localhost';
+    FLUSH PRIVILEGES;
+    exit
+    ```
+5. Setup the database:
+    ```sh
+    mysql -u phosphorus_user phosphorus_db < setup/schema.sql
+    ```
+6. Update and confirm Django settings:
+    ```sh
+    python manage.py migrate
+    ```
 
 ## Running the Application
 
@@ -179,21 +185,21 @@ To normalize the data:
 python setup/normalize.py
 ```
 
-To validate the data separately:
+To validate the data:
 
 ```sh
 python setup/validate.py
 ```
 
-After running `normalize.py`, the cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv`.
+After running `normalize.py`, cleaned data will be saved as `book.csv`, `authors.csv`, `book_authors.csv`, and `borrower.csv`.
 
-To initialize or reset, run:
+To initialize or reset:
 
 ```sh
 python reset.py
 ```
 
-You can then use the API or run example code in `main.py`:
+To run example code:
 
 ```sh
 python main.py
@@ -205,8 +211,6 @@ To start the development server:
 python manage.py runserver
 ```
 
-This is a development server that can only be accessed over HTTP. If you see a SSL Error you are accessing it through HTTPS.
-
 Access the admin interface at:
 
 ```
@@ -215,8 +219,8 @@ localhost:8000/admin
 
 Default admin credentials:
 
-- user: admin
-- pass: adminpassword
+-   user: admin
+-   pass: adminpassword
 
 To manually update fines:
 

@@ -6,19 +6,23 @@ The views are in views.py, and the actual logic is in api.py.
 """
 
 from django.urls import path
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib import admin
 from backend.views import (
     create_borrower,
     create_librarian,
     create_book,
     search_books,
+    # new endpoints:
+    search_books_with_loan,
+    get_book,
+    search_borrowers,
+    search_borrowers_with_fine,
+    borrower_fines,
     search_loans,
+    search_loans_with_book,
     checkout_loan,
     checkin_loan,
-    search_fines,
-    borrower_fines,
-    pay_fine,
 )
 from backend.auth_views import login_view, logout_view, unauthorized_view
 
@@ -30,86 +34,92 @@ def is_staff(user):
 
 urlpatterns = [
     # Admin interface
-    # Accessible at /admin/ with admin credentials.
-    path("admin/", admin.site.urls),
-    # POST /api/auth/login
-    # Authenticate user and start session.
-    # Params: username (str, required), password (str, required)
-    # Returns: user info, session token
-    # Errors: 401 if credentials invalid
+    # /admin/ [GET]
+    #   - Django admin interface for staff users.
+    #   - Requires authentication (session/cookie).
+    #   - Response: HTML admin dashboard.
+    path("admin/", admin.site.urls, name="admin"),
+    # Authentication endpoints
+    # /api/auth/login [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"username": str, "password": str}
+    #   - Response: {"message": str, "username": str, "id": int} on success; {"error": str} on error.
     path("api/auth/login", login_view, name="login"),
-    # POST /api/auth/logout
-    # Log out current user and end session.
-    # Params: none
-    # Returns: confirmation
-    # Errors: 401 if not authenticated
+    # /api/auth/logout [POST]
+    #   - Logs out the current user session.
+    #   - Response: {"message": str}
     path("api/auth/logout", logout_view, name="logout"),
-    # GET /api/auth/unauthorized
-    # Always returns 401 unauthorized.
-    # Params: none
-    # Returns: error message
-    # Errors: always 401
+    # /api/auth/unauthorized [GET]
+    #   - Always returns 401 Unauthorized.
+    #   - Response: {"error": "Unauthorized"}
     path("api/auth/unauthorized", unauthorized_view, name="unauthorized"),
-    # GET /api/books/search
-    # Search books by title, ISBN, or author.
-    # Params: query (str, required)
-    # Returns: list of books with authors
-    # Errors: 500 for database errors
-    path("api/books/search", search_books),
-    # POST /api/borrower/create
-    # Create new borrower (staff only).
-    # Params: ssn (str, required), bname (str, required), address (str, required),
-    #         phone (str, optional), username (str, optional), password (str, optional)
-    # Returns: card_id, name, username if created
-    # Errors: 400 if SSN exists or integrity error
-    path("api/borrower/create", user_passes_test(is_staff)(create_borrower)),
-    # POST /api/librarian/create
-    # Create new librarian (staff only).
-    # Params: username (str, required), password (str, required)
-    # Returns: staff_id, username
-    # Errors: 400 if username exists or integrity error
-    path("api/librarian/create", user_passes_test(is_staff)(create_librarian)),
-    # GET /api/borrower/fines
-    # Get total fines for borrower (staff only).
-    # Params: card_id (str, required), include_paid (bool, optional)
-    # Returns: total fines
-    # Errors: 400 if card_id missing or not found
-    path("api/borrower/fines", user_passes_test(is_staff)(borrower_fines)),
-    # POST /api/books/create
-    # Create new book (staff only).
-    # Params: isbn (str, required), title (str, required), authors (list[str], optional)
-    # Returns: isbn, title, author_ids if provided
-    # Errors: 400 if required params missing or integrity error
-    path("api/books/create", user_passes_test(is_staff)(create_book)),
-    # GET /api/loans/search
-    # Search loans by borrower (staff only).
-    # Params: card_id (str, required), query (str, optional)
-    # Returns: list of loans
-    # Errors: 400 if card_id missing
-    path("api/loans/search", user_passes_test(is_staff)(search_loans)),
-    # POST /api/loans/checkout
-    # Check out book for borrower (staff only).
-    # Params: card_id (str, required), isbn (str, required)
-    # Returns: loan_id
-    # Errors: 400 if 3 active loans, unpaid fines, or book unavailable
-    path("api/loans/checkout", user_passes_test(is_staff)(checkout_loan)),
-    # POST /api/loans/checkin
-    # Check in book (staff only).
-    # Params: loan_id (str, required)
-    # Returns: confirmation with loan_id
-    # Errors: 400 if loan not found or already checked in
-    path("api/loans/checkin", user_passes_test(is_staff)(checkin_loan)),
-    # GET /api/fines/search
-    # Search fines (staff only).
-    # Params: card_ids (JSON array, optional), card_id (str, optional),
-    #         include_paid (bool, optional), sum (bool, optional)
-    # Returns: fine records or summary
-    # Errors: 400 if card_ids invalid or db errors
-    path("api/fines/search", user_passes_test(is_staff)(search_fines)),
-    # POST /api/fines/pay
-    # Pay fines for loan or borrower (staff only).
-    # Params: loan_id (str) OR card_id (str), exactly one required
-    # Returns: payment confirmation, amount paid
-    # Errors: 400 if both/neither param, book not returned, or no unpaid fines
-    path("api/fines/pay", user_passes_test(is_staff)(pay_fine)),
+    # Book endpoints
+    # /api/books/search [GET]
+    #   - Query: ?query=... (structured search string)
+    #   - Response: {"books": [{"isbn": str, "title": str, "authors": [str]}], "total": int, "page": int}
+    path("api/books/search", search_books, name="search_books"),
+    # /api/books/search_with_loan [GET]
+    #   - Query: ?query=... (structured search string)
+    #   - Response: {"results": [[{"isbn": str, "title": str, "authors": [str]}, {loan or null}]], "total": int, "page": int}
+    path("api/books/search_with_loan", login_required(search_books_with_loan), name="search_books_with_loan"),
+    # /api/books/get [GET]
+    #   - Query: ?isbn=... (book ISBN)
+    #   - Response: {"isbn": str, "title": str, "authors": [str]} or {"error": str}
+    path("api/books/get", login_required(get_book), name="get_book"),
+    # /api/books/create [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"isbn": str, "title": str, "authors": [str]}
+    #   - Response: {"message": str, "isbn": str, "title": str, "authors": [str]} or {"error": str}
+    path("api/books/create", login_required(create_book), name="create_book"),
+    # Borrower endpoints
+    # /api/borrower/create [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"ssn": str, "bname": str, "address": str, "phone"?: str, "card_id"?: str}
+    #   - Response: {"message": str, "card_id": str, "name": str} or {"error": str}
+    path("api/borrower/create", login_required(user_passes_test(is_staff)(create_borrower)), name="create_borrower"),
+    # /api/borrower/search [GET]
+    #   - Query: ?query=... (structured search string)
+    #   - Response: {"borrowers": [{"card_id": str, "ssn": str, "bname": str, "address": str, "phone": str}], "total": int, "page": int}
+    path("api/borrower/search", login_required(user_passes_test(is_staff)(search_borrowers)), name="search_borrowers"),
+    # /api/borrower/search_with_fine [GET]
+    #   - Query: ?query=... (structured search string)
+    #   - Response: {"results": [[borrower, total_fines]], "total": int, "page": int}
+    path(
+        "api/borrower/search_with_fine",
+        login_required(user_passes_test(is_staff)(search_borrowers_with_fine)),
+        name="search_borrowers_with_fine",
+    ),
+    # /api/borrower/fines [GET]
+    #   - Query: ?card_id=...&include_paid=true|false
+    #   - Response: {"card_id": str, "total_fines": float} or {"error": str}
+    path("api/borrower/fines", login_required(user_passes_test(is_staff)(borrower_fines)), name="borrower_fines"),
+    # Librarian endpoint
+    # /api/librarian/create [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"username": str, "password": str}
+    #   - Response: {"message": str, "username": str, "id": int} or {"error": str}
+    path("api/librarian/create", login_required(user_passes_test(is_staff)(create_librarian)), name="create_librarian"),
+    # Loan endpoints
+    # /api/loans/search [GET]
+    #   - Query: ?query=... (structured search string)
+    #   - Response: {"loans": [{"loan_id": str, "isbn": str, "card_id": str, "date_out": str, "due_date": str, "date_in": str, "fine_amt": float, "paid": bool}], "total": int, "page": int}
+    path("api/loans/search", login_required(user_passes_test(is_staff)(search_loans)), name="search_loans"),
+    # /api/loans/search_with_book [GET]
+    #   - Query: ?query=... (structured search string)
+    #   - Response: {"results": [[loan, book]], "total": int, "page": int}
+    path(
+        "api/loans/search_with_book",
+        login_required(user_passes_test(is_staff)(search_loans_with_book)),
+        name="search_loans_with_book",
+    ),
+    # /api/loans/checkout [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"card_id": str, "isbn": str}
+    #   - Response: {"message": str, "loan_id": str} or {"error": str}
+    path("api/loans/checkout", login_required(user_passes_test(is_staff)(checkout_loan)), name="checkout_loan"),
+    # /api/loans/checkin [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"loan_id": str}
+    #   - Response: {"message": str, "loan_id": str} or {"error": str}
+    path("api/loans/checkin", login_required(user_passes_test(is_staff)(checkin_loan)), name="checkin_loan"),
 ]

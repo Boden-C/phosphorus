@@ -117,8 +117,8 @@ def create_initial_groups_and_users():
     # 3. Create Librarian User using API
     if not User.objects.filter(username=LIBRARIAN_USERNAME).exists():
         try:
-            staff_id, username = create_librarian(LIBRARIAN_USERNAME, LIBRARIAN_PASSWORD)
-            log.info(f"Librarian user '{LIBRARIAN_USERNAME}' created with staff ID {staff_id}.")
+            user = create_librarian(LIBRARIAN_USERNAME, LIBRARIAN_PASSWORD)
+            log.info(f"Librarian user '{LIBRARIAN_USERNAME}' created with username {user.username}, id {user.id}.")
         except Exception as e:
             log.error("Failed to create librarian user '%s': %s", LIBRARIAN_USERNAME, e)
     else:

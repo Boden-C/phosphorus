@@ -7,16 +7,17 @@ The logic is located in the api.py file, which these call.
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 import json
 from backend import api
+from backend.query import Query
 from setup.logger import log
 import traceback
 
 
 @csrf_exempt
 def create_borrower(request):
-    """Create a new borrower from REST API endpoint"""
+    """Create a new borrower. POST body: {ssn, bname, address, phone?, card_id?}."""
     if request.method == "POST":
         try:
             data = json.loads(request.body)
@@ -24,293 +25,306 @@ def create_borrower(request):
             bname = data.get("bname")
             address = data.get("address")
             phone = data.get("phone")
-
-            card_id, bname = api.create_borrower(ssn=ssn, bname=bname, address=address, phone=phone)
-
-            return JsonResponse({"message": "Borrower created", "card_id": card_id, "name": bname})
-
+            card_id = data.get("card_id")
+            borrower = api.create_borrower(ssn=ssn, bname=bname, address=address, phone=phone, card_id=card_id)
+            return JsonResponse({"message": "Borrower created", "card_id": borrower.card_id, "name": borrower.bname})
         except ValidationError as e:
             return JsonResponse({"error": str(e)}, status=400)
-
         except Exception as e:
             log(f"Exception in create_borrower: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": "Failed to create borrower"}, status=500)
-
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
 def create_librarian(request):
+    """Create a new librarian. POST body: {username, password}."""
     if request.method == "POST":
         try:
-            data = json.loads(request.body) if request.body else request.POST
+            data = json.loads(request.body)
             username = data.get("username")
             password = data.get("password")
-
             if not username or not password:
                 return JsonResponse({"error": "Username and password are required"}, status=400)
-
-            staff_id, username = api.create_librarian(username, password)
-            return JsonResponse(
-                {"message": "Librarian created successfully", "staff_id": staff_id, "username": username}
-            )
+            user = api.create_librarian(username, password)
+            return JsonResponse({"message": "Librarian created", "username": user.username, "id": user.id})
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
             log(f"Exception in create_librarian: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
 def create_book(request):
+    """Create a new book. POST body: {isbn, title, authors: [str]}."""
     if request.method == "POST":
         try:
-            data = json.loads(request.body) if request.body else request.POST
-            isbn, title = api.create_book(
-                isbn=data.get("isbn"),
-                title=data.get("title"),
+            data = json.loads(request.body)
+            isbn = data.get("isbn")
+            title = data.get("title")
+            authors = data.get("authors", [])
+            if not isbn or not title:
+                return JsonResponse({"error": "isbn and title are required"}, status=400)
+            book = api.create_book(isbn, title, authors)
+            return JsonResponse(
+                {"message": "Book created", "isbn": book.isbn, "title": book.title, "authors": book.authors}
             )
-
-            # Handle authors if provided
-            authors = data.get("authors")
-            if authors:
-                author_ids = []
-                for author_name in authors:
-                    author_id, _ = api.create_author(author_name)
-                    api.create_junction(author_id, isbn)
-                    author_ids.append(author_id)
-
-                return JsonResponse(
-                    {"message": "Book created with authors", "isbn": isbn, "title": title, "author_ids": author_ids}
-                )
-
-            return JsonResponse({"message": "Book created", "isbn": isbn, "title": title})
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
             log(f"Exception in create_book: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
 def search_books(request):
+    """Search for books. GET param: query (structured search string)."""
     if request.method == "GET":
         try:
-            query = request.GET.get("query", "")
+            query_str = request.GET.get("query", "")
+            page = int(request.GET.get("page", "1"))
+            limit = int(request.GET.get("limit", "10"))
+            query = Query.of(query_str)
+            query.page = page
+            query.limit = limit
             results = api.search_books(query)
-
-            # Format results as list of dictionaries for JSON
-            books = []
-            for result in results:
-                books.append({"isbn": result[0], "title": result[1], "authors": result[2]})
-
-            return JsonResponse({"books": books})
+            books = [{"isbn": b.isbn, "title": b.title, "authors": b.authors} for b in results.items]
+            return JsonResponse({"books": books, "total": results.total, "page": results.current_page})
         except Exception as e:
             log(f"Exception in search_books: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def search_books_with_loan(request):
+    """Search for books with loan status. GET param: query."""
+    if request.method == "GET":
+        try:
+            query_str = request.GET.get("query", "")
+            page = int(request.GET.get("page", "1"))
+            limit = int(request.GET.get("limit", "10"))
+            query = Query.of(query_str)
+            query.page = page
+            query.limit = limit
+            results = api.search_books_with_loan(query)
+            out = []
+            for book, loan in results.items:
+                book_dict = {"isbn": book.isbn, "title": book.title, "authors": book.authors}
+                loan_dict = None
+                if loan:
+                    loan_dict = {
+                        "loan_id": loan.loan_id,
+                        "card_id": loan.card_id,
+                        "date_out": loan.date_out.isoformat() if loan.date_out else None,
+                        "due_date": loan.due_date.isoformat() if loan.due_date else None,
+                        "date_in": loan.date_in.isoformat() if loan.date_in else None,
+                        "fine_amt": float(loan.fine_amt),
+                        "paid": loan.paid,
+                    }
+                out.append([book_dict, loan_dict])
+            return JsonResponse({"results": out, "total": results.total, "page": results.current_page})
+        except Exception as e:
+            log(f"Exception in search_books_with_loan: {e}\n{traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def get_book(request):
+    """Get a single book by ISBN. GET param: isbn."""
+    if request.method == "GET":
+        try:
+            isbn = request.GET.get("isbn")
+            if not isbn:
+                return JsonResponse({"error": "ISBN is required"}, status=400)
+            book = api.search_books(Query(isbn=isbn)).items
+            if not book:
+                return JsonResponse({"error": "Book not found"}, status=404)
+            b = book[0]
+            return JsonResponse({"isbn": b.isbn, "title": b.title, "authors": b.authors})
+        except Exception as e:
+            log(f"Exception in get_book: {e}\n{traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def search_borrowers(request):
+    """Search for borrowers. GET param: query."""
+    if request.method == "GET":
+        try:
+            query_str = request.GET.get("query", "")
+            page = int(request.GET.get("page", "1"))
+            limit = int(request.GET.get("limit", "10"))
+            query = Query.of(query_str)
+            query.page = page
+            query.limit = limit
+            results = api.search_borrowers(query)
+            borrowers = [
+                {"card_id": b.card_id, "ssn": b.ssn, "bname": b.bname, "address": b.address, "phone": b.phone}
+                for b in results.items
+            ]
+            return JsonResponse({"borrowers": borrowers, "total": results.total, "page": results.current_page})
+        except Exception as e:
+            log(f"Exception in search_borrowers: {e}\n{traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def search_borrowers_with_fine(request):
+    """Search for borrowers with total fines. GET param: query."""
+    if request.method == "GET":
+        try:
+            query_str = request.GET.get("query", "")
+            page = int(request.GET.get("page", "1"))
+            limit = int(request.GET.get("limit", "10"))
+            query = Query.of(query_str)
+            query.page = page
+            query.limit = limit
+            results = api.search_borrowers_with_fines("", query)
+            out = []
+            for borrower, fine in results.items:
+                out.append(
+                    [
+                        {
+                            "card_id": borrower.card_id,
+                            "ssn": borrower.ssn,
+                            "bname": borrower.bname,
+                            "address": borrower.address,
+                            "phone": borrower.phone,
+                        },
+                        float(fine),
+                    ]
+                )
+            return JsonResponse({"results": out, "total": results.total, "page": results.current_page})
+        except Exception as e:
+            log(f"Exception in search_borrowers_with_fine: {e}\n{traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def borrower_fines(request):
+    """Get total fines for a borrower. GET param: card_id, include_paid?"""
+    if request.method == "GET":
+        try:
+            card_id = request.GET.get("card_id")
+            if not card_id:
+                return JsonResponse({"error": "Card ID is required"}, status=400)
+            include_paid = request.GET.get("include_paid", "false").lower() == "true"
+            total = api.get_user_fines(card_id, include_paid)
+            return JsonResponse({"card_id": card_id, "total_fines": float(total)})
+        except Exception as e:
+            log(f"Exception in borrower_fines: {e}\n{traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
 def search_loans(request):
+    """Search for loans. GET param: query."""
     if request.method == "GET":
         try:
-            card_id = request.GET.get("card_id", "")
-            query = request.GET.get("query", "")
-
-            if not card_id:
-                return JsonResponse({"error": "Card ID is required"}, status=400)
-
-            results = api.search_loans(card_id, query)
-
-            # Format results as list of dictionaries for JSON
+            query_str = request.GET.get("query", "")
+            page = int(request.GET.get("page", "1"))
+            limit = int(request.GET.get("limit", "10"))
+            query = Query.of(query_str)
+            query.page = page
+            query.limit = limit
+            results = api.search_loans(query)
             loans = []
-            for result in results:
+            for l in results.items:
                 loans.append(
                     {
-                        "loan_id": result[0],
-                        "isbn": result[1],
-                        "card_id": result[2],
-                        "date_out": result[3],
-                        "due_date": result[4],
-                        "date_in": result[5],
+                        "loan_id": l.loan_id,
+                        "isbn": l.isbn,
+                        "card_id": l.card_id,
+                        "date_out": l.date_out.isoformat() if l.date_out else None,
+                        "due_date": l.due_date.isoformat() if l.due_date else None,
+                        "date_in": l.date_in.isoformat() if l.date_in else None,
+                        "fine_amt": float(l.fine_amt),
+                        "paid": l.paid,
                     }
                 )
-
-            return JsonResponse({"loans": loans})
+            return JsonResponse({"loans": loans, "total": results.total, "page": results.current_page})
         except Exception as e:
             log(f"Exception in search_loans: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+def search_loans_with_book(request):
+    """Search for loans with book details. GET param: query."""
+    if request.method == "GET":
+        try:
+            query_str = request.GET.get("query", "")
+            page = int(request.GET.get("page", "1"))
+            limit = int(request.GET.get("limit", "10"))
+            query = Query.of(query_str)
+            query.page = page
+            query.limit = limit
+            results = api.search_loans_with_book(query)
+            out = []
+            for loan, book in results.items:
+                loan_dict = {
+                    "loan_id": loan.loan_id,
+                    "isbn": loan.isbn,
+                    "card_id": loan.card_id,
+                    "date_out": loan.date_out.isoformat() if loan.date_out else None,
+                    "due_date": loan.due_date.isoformat() if loan.due_date else None,
+                    "date_in": loan.date_in.isoformat() if loan.date_in else None,
+                    "fine_amt": float(loan.fine_amt),
+                    "paid": loan.paid,
+                }
+                book_dict = {"isbn": book.isbn, "title": book.title, "authors": book.authors}
+                out.append([loan_dict, book_dict])
+            return JsonResponse({"results": out, "total": results.total, "page": results.current_page})
+        except Exception as e:
+            log(f"Exception in search_loans_with_book: {e}\n{traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
 def checkout_loan(request):
+    """Checkout a book. POST body: {card_id, isbn}."""
     if request.method == "POST":
         try:
-            data = json.loads(request.body) if request.body else request.POST
+            data = json.loads(request.body)
             card_id = data.get("card_id")
             isbn = data.get("isbn")
-
             if not card_id or not isbn:
-                return JsonResponse({"error": "Both card_id and isbn are required"}, status=400)
-
-            loan_id = api.checkout(card_id, isbn)
-            return JsonResponse({"message": "Book checked out successfully", "loan_id": loan_id})
+                return JsonResponse({"error": "card_id and isbn are required"}, status=400)
+            loan = api.checkout(card_id, isbn)
+            return JsonResponse({"message": "Book checked out", "loan_id": loan.loan_id})
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
             log(f"Exception in checkout_loan: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
+    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
 @csrf_exempt
 def checkin_loan(request):
+    """Checkin a book. POST body: {loan_id}."""
     if request.method == "POST":
         try:
-            data = json.loads(request.body) if request.body else request.POST
+            data = json.loads(request.body)
             loan_id = data.get("loan_id")
-
             if not loan_id:
                 return JsonResponse({"error": "loan_id is required"}, status=400)
-
-            api.checkin(loan_id)
-            return JsonResponse({"message": "Book checked in successfully", "loan_id": loan_id})
+            loan = api.checkin(loan_id)
+            return JsonResponse({"message": "Book checked in", "loan_id": loan.loan_id})
         except ValidationError as ve:
             return JsonResponse({"error": str(ve)}, status=400)
         except Exception as e:
             log(f"Exception in checkin_loan: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
-
-
-@csrf_exempt
-def search_fines(request):
-    if request.method == "GET":
-        try:
-            card_id = request.GET.get("card_id")
-            card_ids_str = request.GET.get("card_ids")
-            include_paid = request.GET.get("include_paid", "false").lower() == "true"
-            sum_only = request.GET.get("sum", "false").lower() == "true"
-
-            # Parse card_ids if provided
-            card_ids = []
-            if card_ids_str:
-                try:
-                    card_ids = json.loads(card_ids_str)
-                    if not isinstance(card_ids, list):
-                        return JsonResponse({"error": "card_ids must be a valid JSON array"}, status=400)
-                except json.JSONDecodeError:
-                    return JsonResponse({"error": "Invalid card_ids JSON format"}, status=400)
-
-            # If card_id is provided, add it to card_ids
-            if card_id and not card_ids:
-                card_ids = [card_id]
-
-            if sum_only:
-                if card_id and not card_ids_str:
-                    # Get sum of fines for a specific borrower
-                    total = api.get_user_fines(card_id, include_paid)
-                    return JsonResponse({"card_id": card_id, "total_fines": float(total)})
-                else:
-                    # Get sum of fines for all borrowers or specific set of borrowers
-                    fines_dict = api.get_fines_dict(card_ids=card_ids, include_paid=include_paid)
-                    return JsonResponse({"borrowers": {k: float(v) for k, v in fines_dict.items()}})
-            else:
-                # Get detailed fine records
-                fines = api.get_fines(card_ids=card_ids, include_paid=include_paid)
-
-                # Format results as list of dictionaries for JSON
-                formatted_fines = []
-                for fine in fines:
-                    formatted_fines.append(
-                        {
-                            "loan_id": fine[0],
-                            "card_id": fine[1],
-                            "fine_amt": float(fine[2]),
-                            "paid": fine[3],
-                            "book_title": fine[4],
-                            "due_date": fine[5],
-                            "date_in": fine[6],
-                        }
-                    )
-
-                return JsonResponse({"fines": formatted_fines})
-        except ValidationError as ve:
-            return JsonResponse({"error": str(ve)}, status=400)
-        except Exception as e:
-            log(f"Exception in search_fines: {e}\n{traceback.format_exc()}")
-            return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
-
-
-@csrf_exempt
-def pay_fine(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body) if request.body else request.POST
-            loan_id = data.get("loan_id")
-            card_id = data.get("card_id")
-
-            # Can't provide both loan_id and card_id
-            if loan_id and card_id:
-                return JsonResponse({"error": "Provide either loan_id or card_id, not both"}, status=400)
-
-            # Must provide one of them
-            if not loan_id and not card_id:
-                return JsonResponse({"error": "Either loan_id or card_id is required"}, status=400)
-
-            # Pay for specific loan
-            if loan_id:
-                result = api.pay_loan_fine(loan_id)
-                return JsonResponse(result)
-
-            # Pay all fines for a borrower
-            else:
-                result = api.pay_borrower_fines(card_id)
-                return JsonResponse(result)
-
-        except ValidationError as ve:
-            return JsonResponse({"error": str(ve)}, status=400)
-        except Exception as e:
-            log(f"Exception in pay_fine: {e}\n{traceback.format_exc()}")
-            return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
-
-
-@csrf_exempt
-def borrower_fines(request):
-    """
-    Get total fines for a specific borrower.
-    """
-    if request.method == "GET":
-        try:
-            card_id = request.GET.get("card_id")
-
-            if not card_id:
-                return JsonResponse({"error": "Card ID is required"}, status=400)
-
-            include_paid = request.GET.get("include_paid", "false").lower() == "true"
-
-            # Get total fines for the borrower
-            total = api.get_user_fines(card_id, include_paid)
-            return JsonResponse({"card_id": card_id, "total_fines": float(total)})
-
-        except ValidationError as ve:
-            return JsonResponse({"error": str(ve)}, status=400)
-        except Exception as e:
-            log(f"Exception in borrower_fines: {e}\n{traceback.format_exc()}")
-            return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
+    return JsonResponse({"error": "Method not allowed"}, status=405)

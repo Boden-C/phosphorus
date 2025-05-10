@@ -5,7 +5,6 @@ This does not call the HTTP endpoints directly, instead it imports the api metho
 
 If you are looking for the implementation of the API methods, check the backend/api.py file.
 If you are looking for the HTTP endpoints, check the backend/views.py file.
-If you are looking for managing the database, check the manage.py file.
 """
 
 from datetime import date, timedelta
@@ -28,28 +27,6 @@ def main():
     """
     Main testing playground for the API methods.
     By default, it contains examples of how to use the API methods.
-
-    All available API methods:
-     - search_books(query: str) -> List[Tuple]
-     - checkout(card_id: str, isbn: str) -> str
-     - search_loans(card_id: str, query: str) -> List[Tuple]
-     - checkin(loan_id: str) -> str
-     - get_user_fines(card_id: str, include_paid: bool = False) -> Decimal
-     - get_fines(card_ids:list = [], include_paid: bool = False, sum: bool = False) -> List[Tuple]
-     - get_fines_dict(card_ids:list = [], include_paid: bool = False) -> Dict[str, Decimal]
-     - pay_loan_fine(loan_id: str) -> dict
-     - pay_borrower_fines(card_id: str) -> dict
-     - update_fines(current_date: date = date.today()) -> None
-     - create_borrower(card_id: str, ssn: str, bname: str, address: str, phone: str = None) -> Tuple[str, str]
-     - create_librarian(username: str, password: str) -> Tuple[str, str]
-     - create_user(id: str, username: str, password: str, group: str) -> Tuple[str, str]
-     - create_book(isbn: str, title: str) -> Tuple[str, str]
-     - create_junction(author_id: str, isbn: str) -> Tuple[str, str]
-     - create_author(author_name: str) -> Tuple[str, str]
-
-    Setup:
-     - clear_database()
-     - import_data()
     """
     # Reset database if allowed by .env.local
     if should_reset_database():
@@ -57,110 +34,106 @@ def main():
         clear_database()
         create_initial_groups_and_users()
         import_data()
-        # Set RESET to false to prevent unintended resets on subsequent runs
         update_env_var("RESET", "false")
         log.info("Database reset complete. RESET flag set to false.")
     else:
         log.info("Skipping database reset due to .env.local RESET=false")
 
-    # Example of creating a librarian user
+    # Create librarian user
     try:
-        staff_id, username = create_librarian("librarian_test", "librarian123")
-        log.info(f"Librarian created: staff_id={staff_id}, username={username}")
+        user = create_librarian("librarian_test", "librarian123")
+        log.info(f"Librarian created: username={user.username}, id={user.id}")
     except ValidationError as e:
         log.warning(f"Librarian creation validation error: {e}")
     except Exception as e:
         log.error(f"Error creating librarian: {e}\n{traceback.format_exc()}")
 
-    # Example of the create_borrower method
-    card_id = "ID001001"  # Using fixed card_id as specified
+    # Create borrower
+    card_id = "ID001001"
     try:
-        card_id, bname = create_borrower(card_id, "123456789", "John Doe", "123 Main St", "555-5555")
-        log.info(f"Borrower created: {card_id}, {bname}")
+        borrower = create_borrower(
+            ssn="123456789", bname="John Doe", address="123 Main St", phone="555-5555", card_id=card_id
+        )
+        log.info(
+            f"Borrower created: card_id={borrower.card_id}, name={borrower.bname}, address={borrower.address}, phone={borrower.phone}"
+        )
     except ValidationError as e:
         log.warning(f"Validation error: {e}")
     except Exception as e:
         log.error(f"Error creating borrower: {e}\n{traceback.format_exc()}")
 
-    # Example of the search_books method
+    # Search books
     isbn: str = None
     try:
-        books = search_books("CLASSICAL")
-        log.info(f"Books found: {len(books)} books total")
-        if books:
-            isbn, title, names = books[0]
-            log.info(f"Selected book: {title} ({isbn})")
+        # Use Query object for search_books
+        books_result = search_books(Query.of("CLASSICAL"))
+        log.info(f"Books found: {books_result.total} books total")
+        if books_result.items:
+            book = books_result.items[0]
+            isbn = book.isbn
+            log.info(f"Selected book: {book.title} ({book.isbn}) by {', '.join(book.authors)}")
     except Exception as e:
         log.error(f"Error searching book: {e}\n{traceback.format_exc()}")
         return
 
-    # Example of the checkout method
+    # Checkout book
     loan_id: str = None
     try:
-        loan_id = checkout(card_id, isbn)
-        log.info(f"Book checked out: Loan {loan_id}")
+        loan = checkout(card_id, isbn)
+        log.info(f"Book checked out: Loan {loan.loan_id}")
+        loan_id = loan.loan_id
     except ValidationError as e:
         log.warning(f"Checkout validation error: {e}")
     except Exception as e:
         log.error(f"Error checking out book: {e}\n{traceback.format_exc()}")
         return
 
-    # Example of the search_loans method
+    # Search loans
     try:
-        loans = search_loans(card_id, isbn)
-        log.info(f"Loans found: {len(loans)} loans total")
-        if loans:
-            loan_details = loans[0]
-            log.info(f"Loan details: {loan_details}")
+        loans_result = search_loans(Query(card=card_id))
+        log.info(f"Loans found: {loans_result.total} loans total")
     except Exception as e:
         log.error(f"Error searching loans: {e}\n{traceback.format_exc()}")
 
-    # Example of the get_fines method with single card ID in list
+    # Get fines for borrower
     try:
         fines = get_fines(card_ids=[card_id])
         log.info(f"Fines found: {len(fines)} unpaid fines")
-
-        # Example with include_paid
+        for f in fines:
+            log.info(f"Fine: loan_id={f.loan_id}, fine_amt={f.fine_amt}, paid={f.paid}")
         all_fines = get_fines(card_ids=[card_id], include_paid=True)
         log.info(f"All fines (including paid): {len(all_fines)} fines")
-
-        # Example with multiple card IDs
         multi_card_fines = get_fines(card_ids=["ID001001", "10001001"])
         log.info(f"Multi-card fines found: {len(multi_card_fines)} unpaid fines")
     except Exception as e:
         log.error(f"Error getting fines: {e}\n{traceback.format_exc()}")
 
-    # Example of get_user_fines method
+    # Get user fine total
     try:
         user_fine_total = get_user_fines(card_id)
         log.info(f"User fine total: ${user_fine_total:.2f}")
     except Exception as e:
         log.error(f"Error getting user fines: {e}\n{traceback.format_exc()}")
 
-    # Example of get_fines_dict method
+    # Get fines dict
     try:
-        fines_dict = get_fines_dict()
+        fines_dict = get_fines_grouped()
         log.info(f"Fines by user: {fines_dict}")
-
-        # Example with specific card IDs
-        specific_fines_dict = get_fines_dict(card_ids=["ID001001", "10001001"])
+        specific_fines_dict = get_fines_grouped(card_ids=["ID001001", "10001001"])
         log.info(f"Specific fines by user: {specific_fines_dict}")
     except Exception as e:
         log.error(f"Error getting fines dictionary: {e}\n{traceback.format_exc()}")
 
-    # Example of the update_fines method
+    # Update fines
     try:
-        # For testing purposes, we set the date to the future
         update_fines(date.today() + timedelta(days=20))
         log.info(f"All fines updated")
-
-        # Show updated fines
         updated_user_fine = get_user_fines(card_id)
         log.info(f"Updated user fine total: ${updated_user_fine:.2f}")
     except Exception as e:
         log.error(f"Error updating fines: {e}\n{traceback.format_exc()}")
 
-    # Example of the checkin method
+    # Checkin book
     try:
         checkin(loan_id)
         log.info(f"Book checked in: Loan {loan_id}")
@@ -169,12 +142,15 @@ def main():
     except Exception as e:
         log.error(f"Error checking in book: {e}\n{traceback.format_exc()}")
 
-    # Example of the pay_borrower_fines method
+    # Pay all fines for borrower
     try:
-        payment_result = pay_borrower_fines(card_id)
-        log.info(f"Fines paid: {payment_result['message']}")
-
-        # Verify fines are paid
+        paid_loans = pay_borrower_fines(card_id)
+        if paid_loans:
+            log.info(f"Fines paid for {len(paid_loans)} loans:")
+            for l in paid_loans:
+                log.info(f"Paid: loan_id={l.loan_id}, fine_amt={l.fine_amt}, paid={l.paid}")
+        else:
+            log.info("No fines to pay.")
         remaining_fines = get_user_fines(card_id)
         log.info(f"Remaining unpaid fines: ${remaining_fines:.2f}")
     except ValidationError as e:
