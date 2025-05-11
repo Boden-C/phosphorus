@@ -13,7 +13,6 @@ from backend.views import (
     create_librarian,
     create_book,
     search_books,
-    # new endpoints:
     search_books_with_loan,
     get_book,
     search_borrowers,
@@ -24,15 +23,12 @@ from backend.views import (
     checkout_loan,
     checkin_loan,
 )
-from backend.auth_views import login_view, logout_view, unauthorized_view
-from .auth_views import login_view, logout_view, unauthorized_view, me_view
-from django.contrib.auth.decorators import login_required, user_passes_test
-from .auth_views import unauthorized_view
+from backend.auth_views import login_view, logout_view, unauthorized_view, current_user_view
 
 staff_required = login_required(
-    user_passes_test(lambda u: u.is_staff, login_url="/api/auth/unauthorized"),
-    login_url="/api/auth/unauthorized"
+    user_passes_test(lambda u: u.is_staff, login_url="/api/auth/unauthorized"), login_url="/api/auth/unauthorized"
 )
+
 
 # Staff permission check
 def is_staff(user):
@@ -56,6 +52,10 @@ urlpatterns = [
     #   - Logs out the current user session.
     #   - Response: {"message": str}
     path("api/auth/logout", logout_view, name="logout"),
+    # /api/auth/me [GET]
+    #   - Returns current user data if authenticated
+    #   - Response: {"success": bool, "user": {"username": str, "is_staff": bool, "is_superuser": bool}}
+    path("api/auth/me", current_user_view, name="current_user"),
     # /api/auth/unauthorized [GET]
     #   - Always returns 401 Unauthorized.
     #   - Response: {"error": "Unauthorized"}
@@ -129,5 +129,4 @@ urlpatterns = [
     #   - Body: {"loan_id": str}
     #   - Response: {"message": str, "loan_id": str} or {"error": str}
     path("api/loans/checkin", login_required(user_passes_test(is_staff)(checkin_loan)), name="checkin_loan"),
-    path("api/auth/me",           me_view,           name="me"),
 ]

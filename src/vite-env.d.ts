@@ -10,6 +10,26 @@ interface LoginResponse extends AuthResponse {
     id: number;
 }
 
+interface UserResponse {
+    username: string;
+    is_staff?: boolean;
+    email?: string;
+}
+
+// Auth context types
+interface AuthContextType {
+    isAuthenticated: boolean;
+    user: User | null;
+    login: (username: string, password: string) => Promise<void>;
+    logout: () => Promise<void>;
+    isLoading: boolean;
+    error: string | null;
+}
+
+interface User {
+    username: string;
+}
+
 // API Error type
 class ApiError extends Error {
     status: number;

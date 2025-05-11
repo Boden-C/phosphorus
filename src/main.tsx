@@ -10,7 +10,7 @@ createRoot(document.getElementById('root')!).render(
 )
 
 // MAIN
-import { runTests } from './main.test.ts'
+// import { runTests } from './main.test.ts'
 
 try {
   // runTests()

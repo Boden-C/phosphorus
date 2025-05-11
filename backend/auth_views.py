@@ -74,6 +74,28 @@ def login_view(request):
         return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
 
 
+def current_user_view(request):
+    """
+    Get the currently authenticated user.
+
+    Returns:
+        JsonResponse: User information or error message
+    """
+    if request.user.is_authenticated:
+        return JsonResponse(
+            {
+                "success": True,
+                "user": {
+                    "username": request.user.username,
+                    "is_staff": request.user.is_staff,
+                    "is_superuser": request.user.is_superuser,
+                },
+            }
+        )
+    else:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+
+
 @csrf_exempt
 def logout_view(request):
     """

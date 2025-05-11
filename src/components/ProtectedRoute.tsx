@@ -1,22 +1,27 @@
-import React, { useEffect, useState } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function ProtectedRoute() {
-  const [status, setStatus] = useState<"loading"|"ok"|"fail">("loading");
-
-  useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then(res => {
-        setStatus(res.ok ? "ok" : "fail");
-      })
-      .catch(() => setStatus("fail"));
-  }, []);
-
-  if (status === "loading") {
-    return <div className="p-8">Checking authentication…</div>;
-  }
-  if (status === "fail") {
-    return <Navigate to="/login" replace />;
-  }
-  return <Outlet />;
+interface ProtectedRouteProps {
+    children: React.ReactNode;
 }
+
+/**
+ * Component to protect routes that require authentication
+ * Redirects to dashboard if user is not authenticated
+ */
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+    const { isAuthenticated, isLoading } = useAuth();
+    const location = useLocation();
+
+    if (isLoading) {
+        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    }
+
+    if (!isAuthenticated) {
+        // Redirect to dashboard with a return URL
+        return <Navigate to="/dashboard" state={{ from: location.pathname }} replace />;
+    }
+
+    return <>{children}</>;
+};

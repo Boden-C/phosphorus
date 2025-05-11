@@ -51,8 +51,19 @@ MIDDLEWARE = [
 ]
 
 # Security settings
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# Set to False in development for easier testing with non-HTTPS environment
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+
+# CORS settings to allow frontend to access the API
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True  # For development only, tighten in production
+
+# Session settings
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"  # Allows session cookies in same-site requests
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_AGE = 86400  # 24 hours in seconds
 
 # Authentication settings
 LOGIN_URL = "/api/auth/unauthorized"

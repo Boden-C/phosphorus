@@ -1532,10 +1532,18 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None, card_
 
         # Generate card_id if not provided
         if not card_id:
-            cursor.execute("SELECT MAX(CAST(card_id AS UNSIGNED)) FROM BORROWER")
-            max_id = cursor.fetchone()[0]
-            next_id = 1 if max_id is None else max_id + 1
-            card_id = str(next_id).zfill(6)  # Format with leading zeros
+            cursor.execute("SELECT card_id FROM BORROWER WHERE card_id LIKE 'ID%' ORDER BY card_id DESC LIMIT 1")
+            result = cursor.fetchone()
+            
+            if result:
+                # Extract the numeric part from the latest card_id
+                last_id = int(result[0][2:])
+                next_id = last_id + 1
+            else:
+                # No existing cards, start with 1
+                next_id = 1
+                
+            card_id = f"ID{next_id:06d}"  # Format as ID000001, ID000002, etc.
 
         # Create the borrower record
         with transaction.atomic():

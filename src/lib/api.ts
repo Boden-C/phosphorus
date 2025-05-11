@@ -70,6 +70,20 @@ export const logout = (): Promise<AuthResponse> => {
 };
 
 /**
+ * Gets the currently authenticated user
+ */
+export const getCurrentUser = (): Promise<UserResponse> => {
+    return apiRequest<{ success: boolean; user: UserResponse }>("/api/auth/me")
+        .then((response) => response.user)
+        .catch((error) => {
+            if (error.status === 401) {
+                throw new Error("Not authenticated");
+            }
+            throw error;
+        });
+};
+
+/**
  * Book API functions
  */
 
