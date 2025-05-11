@@ -157,6 +157,7 @@ export default function Loans() {
         } else {
             executeSearch("", 1, true);
         }
+        setPage(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.search]);
 
