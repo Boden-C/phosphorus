@@ -32,12 +32,20 @@ const optionGroups = [
  * Test page demonstrating the SearchArea component
  */
 const Test: React.FC = () => {
+    const [searchQuery, setSearchQuery] = useState<string>("");
+
+    // Search handler function
+    const handleSearch = (query: string) => {
+        setSearchQuery(query);
+        console.log("Search query:", query);
+    };
 
     return (
-        <div className="min-h-screen flex">
+        <div className="h-screen flex overflow-hidden">
             <Sidebar />
 
-            <main className="flex-1 p-6 space-y-6">
+            {/* Main Content */}
+            <main className="flex-1 p-10 overflow-y-auto">
                 <h1 className="text-2xl font-bold">Search Component Test</h1>
 
                 <p className="text-muted-foreground">
@@ -51,7 +59,14 @@ const Test: React.FC = () => {
                     initialQuery="The Lord of the Rings author:Tolkien"
                 />
 
-                <div className="p-4 border rounded-md bg-muted/20">
+                {searchQuery && (
+                    <div className="mt-4 p-2 bg-muted rounded-md">
+                        <h3 className="font-medium">Current search query:</h3>
+                        <code>{searchQuery}</code>
+                    </div>
+                )}
+
+                <div className="p-4 border rounded-md bg-muted/20 mt-4">
                     <h2 className="font-semibold mb-2">Example Search Queries:</h2>
                     <ul className="space-y-1 list-disc list-inside text-sm">
                         <li>

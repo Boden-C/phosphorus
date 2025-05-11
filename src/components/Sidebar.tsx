@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
 
     return (
         <>
-            <aside className={cn("w-64 border-r flex flex-col p-6 h-screen", className)}>
+            <aside className={cn("w-64 border-r flex flex-col p-6 h-screen sticky top-0", className)}>
                 <h1 className="text-2xl font-bold mb-8">Phosphorus Library</h1>
                 <nav className="flex flex-col gap-4 flex-grow">
                     <NavLink

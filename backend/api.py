@@ -123,7 +123,7 @@ def search_books(query: Query) -> Results[Book]:
                 # Default sort
                 main_query += f" ORDER BY B.title {direction}"
         else:
-            # Default sort
+            # Default sort by title
             main_query += " ORDER BY B.title ASC"
 
         # Add pagination
@@ -428,11 +428,8 @@ def search_loans(query: Query) -> Results[Loan]:
             elif sort_field == "fine_amt":
                 main_query += f" ORDER BY fine_amt {direction}"
             else:
-                # Default sort
-                main_query += f" ORDER BY BL.loan_id {direction}"
-        else:
-            # Default sort
-            main_query += " ORDER BY BL.loan_id DESC"
+                # Default sort by date_out
+                main_query += " ORDER BY BL.date_out DESC"
 
         # Add pagination
         if query.limit is not None:
@@ -761,11 +758,8 @@ def search_borrowers(query: Query) -> Results[Borrower]:
             elif sort_field == "address":
                 main_query += f" ORDER BY B.address {direction}"
             else:
-                # Default sort
-                main_query += f" ORDER BY B.card_id {direction}"
-        else:
-            # Default sort
-            main_query += " ORDER BY B.card_id ASC"
+                # Default sort by borrower name
+                main_query += " ORDER BY B.bname ASC"
 
         # Add pagination
         if query.limit is not None:
@@ -1534,7 +1528,7 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None, card_
         if not card_id:
             cursor.execute("SELECT card_id FROM BORROWER WHERE card_id LIKE 'ID%' ORDER BY card_id DESC LIMIT 1")
             result = cursor.fetchone()
-            
+
             if result:
                 # Extract the numeric part from the latest card_id
                 last_id = int(result[0][2:])
@@ -1542,7 +1536,7 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None, card_
             else:
                 # No existing cards, start with 1
                 next_id = 1
-                
+
             card_id = f"ID{next_id:06d}"  # Format as ID000001, ID000002, etc.
 
         # Create the borrower record
@@ -1573,7 +1567,11 @@ def create_librarian(username: str, password: str) -> User:
         ValidationError: If validation fails (e.g., duplicate username)
         Exception: If a database error occurs
     """
-    return create_user(username, password, "librarian")
+    user = create_user(username, password, "librarian")
+    user.is_staff = True
+    user.is_superuser = False
+    user.save()
+    return user
 
 
 def create_user(username: str, password: str, group: str) -> User:

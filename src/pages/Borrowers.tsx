@@ -4,11 +4,11 @@ import { Sidebar } from "@/components/Sidebar";
 
 export default function Borrowers() {
     return (
-        <div className="min-h-screen flex">
+        <div className="h-screen flex overflow-hidden">
             <Sidebar />
 
             {/* Main Content */}
-            <main className="flex-1 p-10">
+            <main className="flex-1 p-10 overflow-y-scroll">
                 <Card>
                     <CardHeader>
                         <CardTitle>Borrowers Management</CardTitle>
