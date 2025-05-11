@@ -16,7 +16,7 @@ from backend.views import (
     search_books_with_loan,
     get_book,
     search_borrowers,
-    search_borrowers_with_fine,
+    search_borrowers_with_info,
     borrower_fines,
     search_loans,
     search_loans_with_book,
@@ -88,13 +88,13 @@ urlpatterns = [
     #   - Query: ?query=... (structured search string)
     #   - Response: {"borrowers": [{"card_id": str, "ssn": str, "bname": str, "address": str, "phone": str}], "total": int, "page": int}
     path("api/borrower/search", login_required(user_passes_test(is_staff)(search_borrowers)), name="search_borrowers"),
-    # /api/borrower/search_with_fine [GET]
+    # /api/borrower/search_with_info [GET]
     #   - Query: ?query=... (structured search string)
-    #   - Response: {"results": [[borrower, total_fines]], "total": int, "page": int}
+    #   - Response: {"results": [[borrower, active_loans, fine_owed]], "total": int, "page": int}
     path(
-        "api/borrower/search_with_fine",
-        login_required(user_passes_test(is_staff)(search_borrowers_with_fine)),
-        name="search_borrowers_with_fine",
+        "api/borrower/search_with_info",
+        login_required(user_passes_test(is_staff)(search_borrowers_with_info)),
+        name="search_borrowers_with_info",
     ),
     # /api/borrower/fines [GET]
     #   - Query: ?card_id=...&include_paid=true|false

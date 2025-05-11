@@ -176,8 +176,8 @@ def search_borrowers(request):
 
 
 @csrf_exempt
-def search_borrowers_with_fine(request):
-    """Search for borrowers with total fines. GET param: query."""
+def search_borrowers_with_info(request):
+    """Search for borrowers with active loans, total loans, and fines. GET param: query."""
     if request.method == "GET":
         try:
             query_str = request.GET.get("query", "")
@@ -186,9 +186,9 @@ def search_borrowers_with_fine(request):
             query = Query.of(query_str)
             query.page = page
             query.limit = limit
-            results = api.search_borrowers_with_fines("", query)
+            results = api.search_borrowers_with_info("", query)
             out = []
-            for borrower, fine in results.items:
+            for borrower, active_loans, total_loans, fine in results.items:
                 out.append(
                     [
                         {
@@ -198,6 +198,8 @@ def search_borrowers_with_fine(request):
                             "address": borrower.address,
                             "phone": borrower.phone,
                         },
+                        active_loans,
+                        total_loans,
                         float(fine),
                     ]
                 )

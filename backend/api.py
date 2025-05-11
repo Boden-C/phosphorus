@@ -8,7 +8,7 @@ This module provides all core functionality for the library management system, i
  - search_loans(query: Query) -> Results[Loan]
  - search_loans_with_book(query: Query) -> Results[Tuple[Loan, Book]]
  - search_borrowers(query: Query) -> Results[Borrower]
- - search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Borrower, Decimal]]
+ - search_borrowers_with_info(card_id: str, query: Query) -> Results[Tuple[Borrower, int, int, Decimal]]
  - checkout(card_id: str, isbn: str) -> Loan
  - checkin(loan_id: str) -> Loan
  - get_user_fines(card_id: str, include_paid: bool = False) -> Decimal
@@ -785,16 +785,17 @@ def search_borrowers(query: Query) -> Results[Borrower]:
         return Results(items=borrowers, total=total_count, page_limit=query.limit, current_page=query.page)
 
 
-def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Borrower, Decimal]]:
+def search_borrowers_with_info(card_id: str, query: Query) -> Results[Tuple[Borrower, int, int, Decimal]]:
     """
-    Search for borrowers with their total outstanding fines.
+    Search for borrowers with their active loan count, total loan count, and total outstanding fines.
 
     Supported query keywords:
         borrower: Filter by borrower name
         card: Filter by card ID
         phone: Filter by phone number
         fine_is: Filter by fine status (owed, paid)
-        sort: Sort by (card_id, name, phone, address, fine_amt)
+        loan_is: Filter by loan status (active, returned)
+        sort: Sort by (card_id, name, phone, address, fine_amt, active_loans, total_loans)
         order: Sort direction (asc, desc)
         limit: Maximum results per page
         page: Page number
@@ -805,7 +806,7 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
         query (Query): Query object containing search parameters and filters
 
     Returns:
-        Results[Tuple[Borrower, Decimal]]: Paginated results of borrowers with their fine amounts
+        Results[Tuple[Borrower, int, int, Decimal]]: Paginated results of borrowers with their active loan count, total loan count, and fine amounts
 
     Raises:
         Exception: If a database error occurs
@@ -838,6 +839,15 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
             elif query.fine_is == FineStatus.PAID:
                 where_clauses.append("F.paid = TRUE")
 
+        # Add loan_is filter support
+        if query.loan_is:
+            if query.loan_is == LoanStatus.ACTIVE:
+                where_clauses.append("BL.date_in IS NULL")
+                # They also have a loan
+                where_clauses.append("BL.loan_id IS NOT NULL")
+            elif query.loan_is == LoanStatus.RETURNED:
+                where_clauses.append("BL.date_in IS NOT NULL")
+
         if query.any_term:
             where_clauses.append(
                 """
@@ -847,7 +857,7 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
                     B.address LIKE %s OR 
                     B.phone LIKE %s
                 )
-            """
+                """
             )
             params.extend([f"%{query.any_term}%", f"%{query.any_term}%", f"%{query.any_term}%", f"%{query.any_term}%"])
 
@@ -874,7 +884,9 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
                 B.bname,
                 B.address,
                 B.phone,
-                COALESCE(SUM(CASE WHEN F.paid = FALSE THEN F.fine_amt ELSE 0 END), 0) as total_fines
+                COALESCE(SUM(CASE WHEN F.paid = FALSE THEN F.fine_amt ELSE 0 END), 0) as total_fines,
+                COUNT(DISTINCT CASE WHEN BL.date_in IS NULL THEN BL.loan_id END) as active_loans,
+                COUNT(DISTINCT BL.loan_id) as total_loans
             FROM BORROWER B
             LEFT JOIN BOOK_LOANS BL ON B.card_id = BL.card_id
             LEFT JOIN FINES F ON BL.loan_id = F.loan_id
@@ -897,6 +909,10 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
                 main_query += f" ORDER BY B.address {direction}"
             elif sort_field == "fine_amt" or sort_field == "fines":
                 main_query += f" ORDER BY total_fines {direction}"
+            elif sort_field == "active_loans":
+                main_query += f" ORDER BY active_loans {direction}"
+            elif sort_field == "total_loans":
+                main_query += f" ORDER BY total_loans {direction}"
             else:
                 # Default sort
                 main_query += f" ORDER BY B.card_id {direction}"
@@ -914,7 +930,7 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
 
         results = []
         for row in cursor.fetchall():
-            card_id, ssn, bname, address, phone, total_fines = row
+            card_id, ssn, bname, address, phone, total_fines, active_loans, total_loans = row
             borrower = Borrower(
                 card_id=card_id,
                 ssn=ssn,
@@ -922,7 +938,7 @@ def search_borrowers_with_fines(card_id: str, query: Query) -> Results[Tuple[Bor
                 address=address,
                 phone=phone if phone else "",
             )
-            results.append((borrower, Decimal(total_fines)))
+            results.append((borrower, int(active_loans), int(total_loans), Decimal(total_fines)))
 
         return Results(items=results, total=total_count, page_limit=query.limit, current_page=query.page)
 

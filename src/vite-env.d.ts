@@ -86,8 +86,8 @@ interface BorrowerSearchResponse {
     page: number;
 }
 
-interface BorrowerWithFineResponse {
-    results: [Borrower, number][];
+interface BorrowerWithInfoResponse {
+    results: [Borrower, number, number, number][]; // [Borrower, active_loans, total_loans, fines_owed]
     total: number;
     page: number;
 }

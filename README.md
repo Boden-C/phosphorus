@@ -39,6 +39,9 @@ All endpoints are under `/api/` except for the Django admin interface.
 -   `GET /api/borrower/search_with_fine` — Search for borrowers with their total fines
     -   Query: `?query=...&page=1&limit=10` (pagination is required)
     -   Response: `{ "results": [[borrower, total_fines]], "total": int, "page": int }`
+-   `GET /api/borrower/search_with_info` — Search for borrowers with their active loan count, total loan count, and total fines owed
+    -   Query: `?query=...&page=1&limit=10` (pagination is required)
+    -   Response: `{ "results": [[borrower, active_loans, total_loans, fine_owed]], "total": int, "page": int }`
 -   `GET /api/borrower/fines` — Get total fines for a borrower
     -   Query: `?card_id=...&include_paid=true|false`
     -   Response: `{ "card_id": str, "total_fines": float }` or `{ "error": str }`
@@ -108,6 +111,7 @@ root/
 -   `search_loans_with_book(query: Query) -> Results[Tuple[Loan, Book]]`
 -   `search_borrowers(query: Query) -> Results[Borrower]`
 -   `search_borrowers_with_fine(card_id: str, query: Query) -> Results[Tuple[Borrower, Decimal]]`
+-   `search_borrowers_with_info(card_id: str, query: Query) -> Results[Tuple[Borrower, int, Decimal]]`
 -   `checkout(card_id: str, isbn: str) -> Loan`
 -   `checkin(loan_id: str) -> Loan`
 -   `get_user_fines(card_id: str, include_paid: bool = False) -> Decimal`
@@ -226,4 +230,8 @@ To manually update fines:
 
 ```sh
 python manage.py update_fines
+```
+
+```markdown
+
 ```

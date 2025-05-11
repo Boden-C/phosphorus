@@ -127,15 +127,22 @@ export const createBorrower = (
     });
 };
 
-export const searchBorrowers = (query: string, page = 1, limit = 10): Promise<BorrowerSearchResponse> => {
+export const searchBorrowers = (query: string, page = 1, limit = 100): Promise<BorrowerSearchResponse> => {
     return apiRequest<BorrowerSearchResponse>(
         `/api/borrower/search?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     );
 };
 
-export const searchBorrowersWithFine = (query: string, page = 1, limit = 10): Promise<BorrowerWithFineResponse> => {
-    return apiRequest<BorrowerWithFineResponse>(
-        `/api/borrower/search_with_fine?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
+/**
+ * Searches for borrowers with additional information.
+ * @param query The search query string.
+ * @param page The page number for pagination (default is 1).
+ * @param limit The maximum number of results per page (default is 100).
+ * @returns A promise that resolves to a BorrowerWithInfoResponse.
+ */
+export const searchBorrowersWithInfo = (query: string, page = 1, limit = 100): Promise<BorrowerWithInfoResponse> => {
+    return apiRequest<BorrowerWithInfoResponse>(
+        `/api/borrower/search_with_info?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     );
 };
 
@@ -183,5 +190,29 @@ export const checkinBook = (loanId: string): Promise<CheckinResponse> => {
     return apiRequest<CheckinResponse>("/api/loans/checkin", {
         method: "POST",
         body: JSON.stringify({ loan_id: loanId }),
+    });
+};
+
+/**
+ * Pay a fine for a specific loan
+ * @param loanId The ID of the loan to pay the fine for
+ * @returns Promise with details of the paid fine
+ */
+export const payLoanFine = (loanId: string): Promise<Loan> => {
+    return apiRequest<Loan>("/api/loans/pay_fine", {
+        method: "POST",
+        body: JSON.stringify({ loan_id: loanId }),
+    });
+};
+
+/**
+ * Pay all unpaid fines for a borrower
+ * @param cardId The borrower's card ID
+ * @returns Promise with a list of loans whose fines were paid
+ */
+export const payBorrowerFines = (cardId: string): Promise<Loan[]> => {
+    return apiRequest<Loan[]>("/api/borrower/pay_fines", {
+        method: "POST",
+        body: JSON.stringify({ card_id: cardId }),
     });
 };

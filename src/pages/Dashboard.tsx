@@ -12,7 +12,7 @@ import { DataTable, TooltipCell, ColumnConfig } from "@/components/DataTable";
 
 /**
  * Dashboard component that displays a searchable book list with loan information
- * with debounced search, improved loading state and infinite scroll pagination
+ * with search on submission, improved loading state and infinite scroll pagination
  */
 export default function Dashboard() {
     const { isAuthenticated } = useAuth();
@@ -27,9 +27,8 @@ export default function Dashboard() {
     const [selectedAvailabilityOption, setSelectedAvailabilityOption] = useState<SearchOption | null>(null);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
-    const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const loaderRef = useRef<HTMLDivElement>(null);
-    const ITEMS_PER_PAGE = 100;
+    const ITEMS_PER_PAGE = 50;
 
     // Handle redirects from protected routes
     useEffect(() => {
@@ -149,21 +148,12 @@ export default function Dashboard() {
         [buildSearchQuery]
     );
 
-    // Debounced search handler for the SearchArea component
+    // Search handler for the SearchArea component - only triggered on submit
     const handleSearch = useCallback(
         (query: string) => {
             setSearchQuery(query);
-
-            // Clear any existing timeout
-            if (debounceTimeoutRef.current) {
-                clearTimeout(debounceTimeoutRef.current);
-            }
-
-            // Set a new timeout
-            debounceTimeoutRef.current = setTimeout(() => {
-                setPage(1);
-                executeSearch(query, 1, true);
-            }, 300);
+            setPage(1);
+            executeSearch(query, 1, true);
         },
         [executeSearch]
     );
@@ -235,7 +225,7 @@ export default function Dashboard() {
                     return loan && !loan.date_in ? (
                         <TooltipCell content={loan.card_id} />
                     ) : (
-                        <Button size="sm" disabled={!isAuthenticated} asChild>
+                        <Button size="sm" variant="outline" disabled={!isAuthenticated} asChild>
                             <Link to={`/checkout?isbn=${book.isbn}`}>Checkout</Link>
                         </Button>
                     );
@@ -344,7 +334,7 @@ export default function Dashboard() {
                                   (searchQuery.trim() !== "" || selectedAvailabilityOption !== null) ? (
                                     <p>No books found. Try adjusting your search query or filters.</p>
                                 ) : (
-                                    <p>Enter terms to search for books or apply filters.</p>
+                                    <p>Enter terms to search for books and press Enter to search.</p>
                                 )}
                             </div>
                         )}

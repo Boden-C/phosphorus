@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { cn } from "../lib/utils";
 import { Card, CardContent } from "./ui/card";
 import { SearchInput } from "./SearchInput";
@@ -38,7 +38,6 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
     const [userTyped, setUserTyped] = useState(true); // Flag to track if changes are from user typing
     const [sortDirection, setSortDirection] = useState<SortDirection>(sortConfig?.defaultSortDirection || "asc");
     const [sortField, setSortField] = useState<string | undefined>(sortConfig?.activeSortFieldId);
-    const activeOptionsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Parse query for existing keywords
     const parseQuery = useCallback((searchQuery: string) => {
@@ -50,7 +49,7 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
 
         while ((match = pattern.exec(searchQuery)) !== null) {
             const keyword = match[1].toLowerCase();
-            const value = match[2] || match[3]; // match[2] is quoted value, match[3] is unquoted
+            const value = match[2] || match[3];
 
             result[keyword] = { keyword, value };
         }
@@ -58,48 +57,41 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
         return result;
     }, []);
 
-    // Update active options when query changes (debounced)
+    // Update active options when query changes
     useEffect(() => {
         if (!userTyped) return;
-        if (activeOptionsUpdateTimeoutRef.current) {
-            clearTimeout(activeOptionsUpdateTimeoutRef.current);
-        }
-        activeOptionsUpdateTimeoutRef.current = setTimeout(() => {
-            const parsedKeywords = parseQuery(query);
-            const newCalculatedActiveState: Record<string, string | null> = {};
+
+        const parsedKeywords = parseQuery(query);
+        const newCalculatedActiveState: Record<string, string | null> = {};
+
+        optionGroups.forEach((group) => {
+            newCalculatedActiveState[group.id] = null;
+            for (const option of group.options) {
+                const keyword = option.keyword.toLowerCase();
+                if (
+                    parsedKeywords[keyword] &&
+                    parsedKeywords[keyword].value.toLowerCase() === option.value.toLowerCase()
+                ) {
+                    newCalculatedActiveState[group.id] = option.id;
+                    break;
+                }
+            }
+        });
+
+        setActiveOptions((currentInternalState) => {
+            let needsUpdate = false;
+            const updatedState = { ...currentInternalState };
             optionGroups.forEach((group) => {
-                newCalculatedActiveState[group.id] = null;
-                for (const option of group.options) {
-                    const keyword = option.keyword.toLowerCase();
-                    if (
-                        parsedKeywords[keyword] &&
-                        parsedKeywords[keyword].value.toLowerCase() === option.value.toLowerCase()
-                    ) {
-                        newCalculatedActiveState[group.id] = option.id;
-                        break;
-                    }
+                const groupId = group.id;
+                const newOptionForGroup =
+                    groupId in newCalculatedActiveState ? newCalculatedActiveState[groupId] : null;
+                if (currentInternalState[groupId] !== newOptionForGroup) {
+                    updatedState[groupId] = newOptionForGroup;
+                    needsUpdate = true;
                 }
             });
-            setActiveOptions((currentInternalState) => {
-                let needsUpdate = false;
-                const updatedState = { ...currentInternalState };
-                optionGroups.forEach((group) => {
-                    const groupId = group.id;
-                    const newOptionForGroup =
-                        groupId in newCalculatedActiveState ? newCalculatedActiveState[groupId] : null;
-                    if (currentInternalState[groupId] !== newOptionForGroup) {
-                        updatedState[groupId] = newOptionForGroup;
-                        needsUpdate = true;
-                    }
-                });
-                return needsUpdate ? updatedState : currentInternalState;
-            });
-        }, 150);
-        return () => {
-            if (activeOptionsUpdateTimeoutRef.current) {
-                clearTimeout(activeOptionsUpdateTimeoutRef.current);
-            }
-        };
+            return needsUpdate ? updatedState : currentInternalState;
+        });
     }, [query, optionGroups, userTyped, parseQuery]);
 
     // Handle option selection (button click)
@@ -110,9 +102,7 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
                 ...prev,
                 [groupId]: optionToSet?.id || null,
             }));
-            if (activeOptionsUpdateTimeoutRef.current) {
-                clearTimeout(activeOptionsUpdateTimeoutRef.current);
-            }
+
             const group = optionGroups.find((g) => g.id === groupId);
             if (!group) {
                 if (onSearch && query.trim() !== (initialQuery || "")) {
@@ -121,6 +111,7 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
                 setTimeout(() => setUserTyped(true), 0);
                 return;
             }
+
             const currentQuery = query;
             const keywordsInGroup = new Set(group.options.map((opt) => opt.keyword.toLowerCase()));
             const queryTerms = currentQuery.trim().split(/\s+/).filter(Boolean);
@@ -132,6 +123,7 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
                 }
                 return true;
             });
+
             const newQueryParts = [...remainingTerms];
             if (optionToSet) {
                 const keyword = optionToSet.keyword.toLowerCase();
@@ -139,14 +131,17 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
                 const formattedValue = value.includes(" ") ? `"${value}"` : value;
                 newQueryParts.unshift(`${keyword}:${formattedValue}`);
             }
+
             let newQueryString = newQueryParts.join(" ").trim();
             if (newQueryString) {
                 newQueryString += " ";
             }
+
             setQuery(newQueryString);
             if (onSearch) {
                 onSearch(newQueryString.trim());
             }
+
             setTimeout(() => setUserTyped(true), 0);
             if (group.onChange) {
                 group.onChange(optionToSet);
@@ -218,20 +213,23 @@ export function SearchArea({ initialQuery = "", onSearch, optionGroups = [], sor
         [onSearch]
     );
 
-    // Handle search query changes
+    // Handle search query changes (only updates query text, doesn't trigger search)
     const handleQueryChange = (value: string) => {
         setUserTyped(true);
         setQuery(value);
+    };
 
+    // Handle search submission
+    const handleSearchSubmit = () => {
         if (onSearch) {
-            onSearch(value);
+            onSearch(query);
         }
     };
 
     return (
         <Card className={cn("", className)}>
             <CardContent className="p-4 space-y-4">
-                <SearchInput value={query} onChange={handleQueryChange} />
+                <SearchInput value={query} onChange={handleQueryChange} onSearch={handleSearchSubmit} />
 
                 <div className="flex justify-between items-start">
                     {/* Filter Option Groups */}
