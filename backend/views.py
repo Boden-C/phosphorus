@@ -13,6 +13,8 @@ from backend import api
 from backend.query import Query
 from setup.logger import log
 import traceback
+from django.views.decorators.http import require_POST
+from datetime import date
 
 
 @csrf_exempt
@@ -330,3 +332,14 @@ def checkin_loan(request):
             log(f"Exception in checkin_loan: {e}\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+@csrf_exempt
+@require_POST
+def trigger_update_fines(request):
+    """Trigger fine updates for all overdue loans"""
+    try:
+        api.update_fines(current_date=date.today())
+        return JsonResponse({"message": "Fines updated successfully"})
+    except Exception as e:
+        log(f"Exception in trigger_update_fines: {e}\n{traceback.format_exc()}")
+        return JsonResponse({"error": str(e)}, status=500)

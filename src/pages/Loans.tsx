@@ -8,6 +8,7 @@ import { searchLoansWithBook, checkinBook, payLoanFine } from "@/lib/api";
 import { SearchOption, SortDirection, SortFieldOption } from "@/components/SearchOptionGroup";
 import { DataTable, TooltipCell, ColumnConfig } from "@/components/DataTable";
 import { toast } from "sonner";
+import { updateFines } from "@/lib/api";
 
 /**
  * Loans management page with search functionality and loan information
@@ -517,6 +518,22 @@ export default function Loans() {
                         <CardTitle>Loans {totalLoans > 0 && `(${totalLoans} found)`}</CardTitle>
                     </CardHeader>
                     <CardContent className="px-0 sm:px-2">
+                        <div className="flex justify-end px-4 pb-2">
+                            <Button
+                                variant="default"
+                                onClick={async () => {
+                                    try {
+                                        await updateFines();
+                                        toast.success("Fines updated successfully");
+                                        executeSearch(searchQuery, 1, true);
+                                    } catch (error) {
+                                        toast.error(error instanceof Error ? error.message : "Failed to update fines");
+                                    }
+                                }}
+                            >
+                                Update Fines
+                            </Button>
+                        </div>
                         {results.length > 0 ? (
                             <div
                                 className={`transition-opacity duration-200 ${isLoading && page === 1 ? "opacity-60" : "opacity-100"}`}

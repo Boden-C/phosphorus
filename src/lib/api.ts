@@ -216,3 +216,16 @@ export const payBorrowerFines = (cardId: string): Promise<Loan[]> => {
         body: JSON.stringify({ card_id: cardId }),
     });
 };
+
+export async function updateFines(): Promise<void> {
+    const res = await fetch("/api/fines/update", {
+        method: "POST",
+        credentials: "include",
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update fines");
+    }
+}
+

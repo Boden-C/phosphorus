@@ -22,6 +22,7 @@ from backend.views import (
     search_loans_with_book,
     checkout_loan,
     checkin_loan,
+    trigger_update_fines,
 )
 from backend.auth_views import login_view, logout_view, unauthorized_view, current_user_view
 
@@ -129,4 +130,5 @@ urlpatterns = [
     #   - Body: {"loan_id": str}
     #   - Response: {"message": str, "loan_id": str} or {"error": str}
     path("api/loans/checkin", login_required(user_passes_test(is_staff)(checkin_loan)), name="checkin_loan"),
+    path("api/fines/update", login_required(trigger_update_fines), name="trigger_update_fines"),
 ]
