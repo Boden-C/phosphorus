@@ -3,7 +3,7 @@
  * Based on the endpoints defined in backend/urls.py and implementations in backend/api.py.
  */
 
-let API_BASE_URL = "";
+let API_BASE_URL = "http://localhost:8000";
 
 /**
  * Sets the base URL for all API requests.

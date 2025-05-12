@@ -4,7 +4,6 @@ import * as api from "@/lib/api";
 interface User {
     username: string;
     is_staff?: boolean;
-    is_superuser?: boolean;
 }
 
 interface AuthContextType {
@@ -54,12 +53,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     setUser({
                         username: userData.username,
                         is_staff: userData.is_staff,
-                        is_superuser: userData.is_superuser,
                     });
                     setIsAuthenticated(true);
                 }
             } catch (err) {
-                // User is not authenticated, which is expected in some cases
                 setUser(null);
                 setIsAuthenticated(false);
             } finally {
@@ -77,11 +74,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             const response = await api.login(username, password);
 
-            if (response && response.success) {
+            if (response && response.username) {
                 setUser({
-                    username: response.user.username,
-                    is_staff: response.user.is_staff,
-                    is_superuser: response.user.is_superuser,
+                    username: response.username,
                 });
                 setIsAuthenticated(true);
             } else {

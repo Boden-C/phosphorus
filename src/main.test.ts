@@ -56,9 +56,8 @@ export async function runTests(): Promise<void> {
     }
 
     // 3. Test login success
-    let user;
     try {
-        user = await login(testUser.username, testUser.password);
+        await login(testUser.username, testUser.password);
         logResult("Login with correct credentials should succeed", true);
     } catch (e) {
         logResult("Login with correct credentials should succeed", false, (e as Error).message);
