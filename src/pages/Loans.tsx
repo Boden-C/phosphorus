@@ -9,6 +9,7 @@ import { SearchOption, SortDirection, SortFieldOption, SortOption } from "@/comp
 import { DataTable, TooltipCell, ColumnConfig } from "@/components/DataTable";
 import { toast } from "sonner";
 import { updateFines } from "@/lib/api";
+import { Link } from "react-router-dom";
 
 /**
  * Loans management page with search functionality and loan information
@@ -321,7 +322,17 @@ export default function Loans() {
                 header: "Borrower",
                 width: "15%",
                 cellClassName: "font-medium",
-                render: ([loan]) => <TooltipCell content={loan.card_id} />,
+                /**
+                 * Renders the borrower id as a link to the Borrowers page filtered by this borrower.
+                 */
+                render: ([loan]) => (
+                    <Link
+                        to={`/borrowers?query=card:${loan.card_id}`}
+                        className="text-primary underline hover:text-primary/80"
+                    >
+                        <TooltipCell content={loan.card_id} />
+                    </Link>
+                ),
             },
             {
                 key: "book",
