@@ -70,7 +70,7 @@ urlpatterns = [
     # /api/books/search_with_loan [GET]
     #   - Query: ?query=... (structured search string)
     #   - Response: {"results": [[{"isbn": str, "title": str, "authors": [str]}, {loan or null}]], "total": int, "page": int}
-    path("api/books/search_with_loan", login_required(search_books_with_loan), name="search_books_with_loan"),
+    path("api/books/search_with_loan", search_books_with_loan, name="search_books_with_loan"),
     # /api/books/get [GET]
     #   - Query: ?isbn=... (book ISBN)
     #   - Response: {"isbn": str, "title": str, "authors": [str]} or {"error": str}
