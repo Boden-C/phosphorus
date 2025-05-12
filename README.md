@@ -215,7 +215,25 @@ To start the development server:
 python manage.py runserver
 ```
 
-Access the admin interface at:
+To start the Electron development server:
+
+```sh
+npm run electron:dev
+```
+
+To start the general (Next.js or frontend) development server:
+
+```sh
+npm run dev
+
+It should display this:-
+
+VITE v6.3.2  ready in 580 ms
+
+➜  Local:   http://localhost:5173/  (your local URL may vary)
+➜  Network: use --host to expose
+➜  press h + enter to show help
+```
 
 ```
 localhost:8000/admin
