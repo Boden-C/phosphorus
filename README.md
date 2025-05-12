@@ -84,22 +84,40 @@ These parameters are required to ensure proper API behavior and prevent excessiv
 
 ```
 root/
-  backend/          # Backend Django application
-    api.py          # Core API logic
-    settings.py     # Django backend settings
-    urls.py         # URL patterns for HTTP endpoints
-    views.py        # HTTP endpoint handlers
-    database/       # Database models and commands
-  setup/
-    data/           # Raw input data for normalization
-    output/         # Normalized output data
-    schema.sql      # SQL schema definition
-    normalize.py    # Data normalization script
-    validate.py     # Data validation script
-  manage.py         # Django administrative script
-  main.py           # Example API usage
-  reset.py          # Database reset and data import
-  requirements.txt  # Python package dependencies
+├── backend/                                # Python backend folder
+│   ├── api.py                              # Core API routing logic
+│   ├── auth_views.py                       # Authentication-related view handlers
+│   ├── query.py                            # Custom SQL queries or logic
+│   ├── settings.py                         # App configuration (e.g., DB, middleware)
+│   ├── urls.py                             # Maps URL paths to views
+│   ├── views.py                            # Core request handling views
+│   └── database/                           # DB models and related logic
+│       ├── models.py                       # SQL table definitions
+│       └── views.py                        # Views specific to DB ops (if any)
+│
+├── src/                                    # Frontend app (React + Vite + TS)
+│   ├── components/
+│   │   ├── ui/                             # Reusable UI elements (button, table, etc.)
+│   │   ├── BorrowerModal.tsx              # Modal for borrower actions
+│   │   ├── DataTable.tsx                  # Generic data table component
+│   │   ├── SearchArea.tsx                 # Search bar + filters
+│   │   └── Sidebar.tsx                    # Main navigation sidebar
+│   ├── pages/
+│   │   ├── Borrowers.tsx                  # Page to view/search borrower data
+│   │   ├── Checkout.tsx                   # Page to handle book checkouts
+│   │   └── Loans.tsx                      # Page to view and manage loans
+│   ├── lib/
+│   │   └── api.ts                         # API client for frontend-backend requests
+│   ├── App.tsx                            # Root component
+│   └── main.tsx                           # Frontend entry point
+│
+├── manage.py                               # Django CLI entry point
+├── main.py                                 # Script to demonstrate backend usage
+├── README.md                               # Project overview and instructions
+├── package.json                            # Frontend dependencies and scripts
+├── requirements.txt                        # Backend (Python) dependencies
+└── vite.config.ts                          # Vite configuration for the frontend
+
 ```
 
 ## API Methods (backend/api.py)
