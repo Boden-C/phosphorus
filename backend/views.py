@@ -343,3 +343,26 @@ def trigger_update_fines(request):
     except Exception as e:
         log(f"Exception in trigger_update_fines: {e}\n{traceback.format_exc()}")
         return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+@require_POST
+def pay_loan_fine_view(request, loan_id: str):
+    try:
+        print(f"[DEBUG] pay_loan_fine_view called with loan_id={loan_id}")
+        loan = api.pay_loan_fine(loan_id)
+        return JsonResponse({
+            "loan_id": loan.loan_id,
+            "isbn": loan.isbn,
+            "card_id": loan.card_id,
+            "date_out": loan.date_out.isoformat() if loan.date_out else None,
+            "due_date": loan.due_date.isoformat() if loan.due_date else None,
+            "date_in": loan.date_in.isoformat() if loan.date_in else None,
+            "fine_amt": str(loan.fine_amt),
+            "paid": loan.paid,
+        })
+    except Exception as e:
+        import traceback
+        print("[ERROR] in pay_loan_fine_view:")
+        print(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=400)
+

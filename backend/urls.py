@@ -23,6 +23,7 @@ from backend.views import (
     checkout_loan,
     checkin_loan,
     trigger_update_fines,
+    pay_loan_fine_view,
 )
 from backend.auth_views import login_view, logout_view, unauthorized_view, current_user_view
 
@@ -130,5 +131,12 @@ urlpatterns = [
     #   - Body: {"loan_id": str}
     #   - Response: {"message": str, "loan_id": str} or {"error": str}
     path("api/loans/checkin", login_required(user_passes_test(is_staff)(checkin_loan)), name="checkin_loan"),
+    # /api/fines/update [POST]
+    #   - Description: Triggers background task to recalculate fines for all late loans
+    #   - Response: {"message": str} or {"error": str}
     path("api/fines/update", login_required(trigger_update_fines), name="trigger_update_fines"),
+    # /api/fines/pay/<loan_id> [POST]
+    #   - Description: Marks the fine for a specific loan as paid
+    #   - Response: {loan object} or {"error": str}
+    path("api/fines/pay/<str:loan_id>", pay_loan_fine_view, name="pay_loan_fine"),
 ]

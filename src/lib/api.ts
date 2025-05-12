@@ -198,12 +198,17 @@ export const checkinBook = (loanId: string): Promise<CheckinResponse> => {
  * @param loanId The ID of the loan to pay the fine for
  * @returns Promise with details of the paid fine
  */
-export const payLoanFine = (loanId: string): Promise<Loan> => {
-    return apiRequest<Loan>("/api/loans/pay_fine", {
+export async function payLoanFine(loanId: string): Promise<void> {
+    const res = await fetch(`/api/fines/pay/${loanId}`, {
         method: "POST",
-        body: JSON.stringify({ loan_id: loanId }),
+        credentials: "include",
     });
-};
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to pay fine");
+    }
+}
 
 /**
  * Pay all unpaid fines for a borrower
