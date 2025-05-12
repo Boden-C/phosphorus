@@ -10,22 +10,19 @@ const Loans = lazy(() => import("./pages/Loans"));
 const Test = lazy(() => import("./pages/Test"));
 
 const App: React.FC = () => {
-  useEffect(() => {
-    const updateDarkMode = () => {
-      if (
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-      ) {
-        document.body.classList.add("dark");
-      } else {
-        document.body.classList.remove("dark");
-      }
-    };
-    updateDarkMode();
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener("change", updateDarkMode);
-    return () => mq.removeEventListener("change", updateDarkMode);
-  }, []);
+    useEffect(() => {
+        const updateDarkMode = () => {
+            if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                document.body.classList.add("dark");
+            } else {
+                document.body.classList.remove("dark");
+            }
+        };
+        updateDarkMode();
+        const mq = window.matchMedia("(prefers-color-scheme: dark)");
+        mq.addEventListener("change", updateDarkMode);
+        return () => mq.removeEventListener("change", updateDarkMode);
+    }, []);
 
     return (
         <AuthProvider>

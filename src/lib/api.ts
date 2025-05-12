@@ -114,6 +114,15 @@ export const createBook = (isbn: string, title: string, authors: string[] = []):
  * Borrower API functions
  */
 
+/**
+ * Creates a new borrower in the system
+ * @param ssn Social security number of the borrower
+ * @param bname Borrower's name
+ * @param address Borrower's address
+ * @param phone Optional phone number
+ * @param card_id Optional card ID (will be generated if not provided)
+ * @returns Promise with the created borrower details
+ */
 export const createBorrower = (
     ssn: string,
     bname: string,
@@ -233,4 +242,3 @@ export async function updateFines(): Promise<void> {
         throw new Error(err.error || "Failed to update fines");
     }
 }
-

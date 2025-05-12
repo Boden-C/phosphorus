@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar } from "@/components/Sidebar";
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ export default function Checkout() {
     const [cardId, setCardId] = useState("ID");
     const [isLoading, setIsLoading] = useState(false);
     const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
 
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
@@ -60,7 +59,9 @@ export default function Checkout() {
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error occurred";
             if (msg.includes("has reached the maximum of")) {
-                setErrorMessage("This borrower already has 3 active loans. Please check in a book before checking out another.");
+                setErrorMessage(
+                    "This borrower already has 3 active loans. Please check in a book before checking out another."
+                );
             } else {
                 setErrorMessage(msg);
             }
@@ -105,13 +106,9 @@ export default function Checkout() {
                                 />
                             </div>
 
-                            {errorMessage && (
-                                <p className="text-red-600 font-medium">{errorMessage}</p>
-                            )}
+                            {errorMessage && <p className="text-red-600 font-medium">{errorMessage}</p>}
 
-                            {successMessage && (
-                                <p className="text-green-600 font-medium">{successMessage}</p>
-                            )}
+                            {successMessage && <p className="text-green-600 font-medium">{successMessage}</p>}
 
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? "Processing..." : "Checkout Book"}

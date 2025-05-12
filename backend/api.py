@@ -1540,6 +1540,12 @@ def create_borrower(ssn: str, bname: str, address: str, phone: str = None, card_
         if cursor.fetchone()[0] > 0:
             raise ValidationError(f"Borrower with SSN {ssn} already exists")
 
+        # Check for duplicate card_id if provided
+        if card_id:
+            cursor.execute("SELECT COUNT(*) FROM BORROWER WHERE card_id = %s", [card_id])
+            if cursor.fetchone()[0] > 0:
+                raise ValidationError(f"Borrower with card ID {card_id} already exists")
+
         # Generate card_id if not provided
         if not card_id:
             cursor.execute("SELECT card_id FROM BORROWER WHERE card_id LIKE 'ID%' ORDER BY card_id DESC LIMIT 1")

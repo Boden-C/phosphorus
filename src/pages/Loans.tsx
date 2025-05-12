@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { SearchArea } from "@/components/SearchArea";
 import { Button } from "@/components/ui/button";
 import { searchLoansWithBook, checkinBook, payLoanFine } from "@/lib/api";
-import { SearchOption, SortDirection, SortFieldOption } from "@/components/SearchOptionGroup";
+import { SearchOption, SortDirection, SortFieldOption, SortOption } from "@/components/SearchOptionGroup";
 import { DataTable, TooltipCell, ColumnConfig } from "@/components/DataTable";
 import { toast } from "sonner";
 import { updateFines } from "@/lib/api";
@@ -469,6 +469,10 @@ export default function Loans() {
             label: "Book Title",
             value: "title",
         },
+    ]; // Sort direction options
+    const sortDirectionOptions: SortOption[] = [
+        { direction: "asc", label: "Ascending" },
+        { direction: "desc", label: "Descending" },
     ];
 
     return (
@@ -512,6 +516,7 @@ export default function Loans() {
                             onSortFieldChange: handleSortFieldChange,
                             defaultSortDirection: sortDirection,
                             onSortChange: handleSortChange,
+                            sortOptions: sortDirectionOptions,
                         }}
                     />
                 </div>
