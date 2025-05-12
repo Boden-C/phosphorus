@@ -5,7 +5,6 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { checkoutBook } from "@/lib/api";
 
 /**
@@ -17,6 +16,9 @@ export default function Checkout() {
     const [isLoading, setIsLoading] = useState(false);
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+
+    const [errorMessage, setErrorMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
 
     // Handle URL parameters on component mount
     useEffect(() => {
@@ -35,13 +37,16 @@ export default function Checkout() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        setErrorMessage("");
+        setSuccessMessage("");
+
         if (!isbn.trim()) {
-            toast.error("ISBN is required");
+            setErrorMessage("ISBN is required");
             return;
         }
 
         if (!cardId.trim() || cardId === "ID") {
-            toast.error("Valid Card ID is required");
+            setErrorMessage("Valid Card ID is required");
             return;
         }
 
@@ -49,12 +54,16 @@ export default function Checkout() {
 
         try {
             const response = await checkoutBook(cardId, isbn);
-            toast.success(`Book checked out successfully. Loan ID: ${response.loan_id}`);
-
-            // Reset form or navigate back to dashboard
-            navigate("/");
+            setSuccessMessage(`Book checked out successfully. Loan ID: ${response.loan_id}`);
+            setIsbn("");
+            setCardId("ID");
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Unknown error occurred");
+            const msg = error instanceof Error ? error.message : "Unknown error occurred";
+            if (msg.includes("has reached the maximum of")) {
+                setErrorMessage("This borrower already has 3 active loans. Please check in a book before checking out another.");
+            } else {
+                setErrorMessage(msg);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -95,6 +104,14 @@ export default function Checkout() {
                                     disabled={isLoading}
                                 />
                             </div>
+
+                            {errorMessage && (
+                                <p className="text-red-600 font-medium">{errorMessage}</p>
+                            )}
+
+                            {successMessage && (
+                                <p className="text-green-600 font-medium">{successMessage}</p>
+                            )}
 
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? "Processing..." : "Checkout Book"}
