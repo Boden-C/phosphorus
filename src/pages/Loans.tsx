@@ -248,6 +248,8 @@ export default function Loans() {
             try {
                 await checkinBook(loanId);
                 toast.success("Book checked in successfully");
+                await updateFines();
+                toast.success("Fines updated");
                 // Refresh the data
                 executeSearch(searchQuery, page, true);
             } catch (error) {
@@ -522,6 +524,12 @@ export default function Loans() {
                             <Button
                                 variant="default"
                                 onClick={async () => {
+                                    const hasActive = results.some(([loan]) => !loan.date_in);
+                                    if (hasActive) {
+                                        toast.error("Please check in all books before updating fines.");
+                                        return;
+                                    }
+
                                     try {
                                         await updateFines();
                                         toast.success("Fines updated successfully");

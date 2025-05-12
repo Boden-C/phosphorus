@@ -21,54 +21,7 @@ export default function Borrowers() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const loaderRef = useRef<HTMLDivElement>(null);
-
-    const [openNew, setOpenNew] = useState(false);
-    const [form, setForm] = useState({ name: "", ssn: "", address: "", phone: "" });
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState("");
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = async () => {
-        setError("");
-        setSuccess("");
-
-        if (!form.name || !form.ssn || !form.address) {
-            setError("Name, SSN, and Address are required.");
-            return;
-        }
-
-        try {
-            const res = await fetch("/api/borrower/create", {
-                method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    bname: form.name,
-                    ssn: form.ssn,
-                    address: form.address,
-                    phone: form.phone || null,
-                }),
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                setError(data.error || "Failed to create borrower.");
-                return;
-            }
-
-            setSuccess("Borrower created successfully.");
-            setForm({ name: "", ssn: "", address: "", phone: "" });
-            setOpenNew(false);
-            handleSearch("");
-        } catch (err) {
-            setError("Server error. Please try again.");
-        }
-    };
+    const [finesPaid, setFinesPaid] = useState<Record<string, number>>({});
 
     const buildSearchQuery = useCallback((baseQuery: string) => {
         const sortRegex = /\bsort:([^\s]+)/;
@@ -109,10 +62,6 @@ export default function Borrowers() {
         executeSearch(query, 1, true);
     }, [executeSearch]);
 
-    const handleStatusSelect = useCallback((option: SearchOption | null) => setSelectedStatusOption(option), []);
-    const handleSortFieldChange = useCallback((field: SortFieldOption) => setSortField(field.value), []);
-    const handleSortChange = useCallback((direction: SortDirection) => setSortDirection(direction), []);
-
     const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
         const target = entries[0];
         if (target.isIntersecting && hasMore && !isLoading) {
@@ -147,14 +96,47 @@ export default function Borrowers() {
         return () => { if (currentRef) observer.unobserve(currentRef); };
     }, [hasMore, isLoading]);
 
+    useEffect(() => {
+        async function fetchFinesPaid() {
+            const promises = results.map(async ([b]) => {
+                try {
+                    const res = await fetch(`/api/borrower/fines?card_id=${b.card_id}&include_paid=true`, {
+                        credentials: "include",
+                    });
+                    const data = await res.json();
+                    if (data && data.total_fines !== undefined) {
+                        const owed = results.find(([br]) => br.card_id === b.card_id)?.[3] || 0;
+                        const paid = data.total_fines - owed;
+                        return [b.card_id, paid > 0 ? paid : 0];
+                    }
+                } catch {
+                    return [b.card_id, 0];
+                }
+                return [b.card_id, 0];
+            });
+
+            const entries = await Promise.all(promises);
+            const map = Object.fromEntries(entries);
+            setFinesPaid(map);
+        }
+
+        if (results.length > 0) {
+            fetchFinesPaid();
+        }
+    }, [results]);
+
     const columns = useMemo<ColumnConfig<[Borrower, number, number, number]>[]>(() => [
-        { key: "card_id", header: "Card ID", width: "12%", cellClassName: "font-mono text-xs", render: ([b]) => <TooltipCell content={b.card_id} /> },
-        { key: "name", header: "Borrower Name", width: "25%", cellClassName: "font-medium", render: ([b]) => <TooltipCell content={b.bname} /> },
+        { key: "card_id", header: "Card ID", width: "12%", render: ([b]) => <TooltipCell content={b.card_id} /> },
+        { key: "name", header: "Borrower Name", width: "25%", render: ([b]) => <TooltipCell content={b.bname} /> },
         { key: "phone", header: "Phone", width: "15%", render: ([b]) => <TooltipCell content={b.phone || "-"} /> },
         { key: "total_loans", header: "Total Loans", width: "12%", render: ([b, , total_loans]) => total_loans > 0 ? <Button variant="link" className="p-0 h-auto" asChild><Link to={`/loans?query=card:${b.card_id}`}>{total_loans}</Link></Button> : <span>0</span> },
         { key: "fines", header: "Fines Owed", width: "15%", render: ([b, , , fine]) => fine > 0 ? <Button variant="link" className="p-0 h-auto text-destructive" asChild><Link to={`/loans?query=card:${b.card_id} fine_is:owed`}>${fine.toFixed(2)}</Link></Button> : <span className="text-muted-foreground">None</span> },
+        { key: "fines_paid", header: "Fines Paid", width: "12%", render: ([b]) => {
+            const paid = finesPaid[b.card_id] || 0;
+            return paid > 0 ? <span className="text-green-600 font-medium">${paid.toFixed(2)}</span> : <span className="text-muted-foreground">None</span>;
+        }},
         { key: "checkin", header: "Checkin", width: "16%", render: ([b, active_loans]) => active_loans > 0 ? <Button variant="outline" size="sm" asChild><Link to={`/loans?query=card:${b.card_id} loan_is:active`}>Checkin {active_loans} {active_loans === 1 ? "Book" : "Books"}</Link></Button> : <span className="text-muted-foreground">None</span> },
-    ], []);
+    ], [finesPaid]);
 
     const statusOptions: SearchOption[] = [
         { id: "active_loans", label: "Has Active Loans", keyword: "loan_is", value: "active" },
@@ -173,22 +155,22 @@ export default function Borrowers() {
             <main className="flex-1 p-10 overflow-y-scroll">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-3xl font-bold">Borrowers Management</h1>
-                    <Button onClick={() => setOpenNew(true)}>New Borrower</Button>
+                    <Button onClick={() => window.location.href='/borrowers/create'}>New Borrower</Button>
                 </div>
                 <div className="mb-6">
                     <SearchArea
                         key={searchQuery}
                         initialQuery={searchQuery}
                         onSearch={handleSearch}
-                        optionGroups={[{ id: "status", title: "Filter", options: statusOptions, onChange: handleStatusSelect }]}
+                        optionGroups={[{ id: "status", title: "Filter", options: statusOptions, onChange: setSelectedStatusOption }]}
                         sortConfig={{
                             id: "sort",
                             title: "Sort By",
                             sortFields: sortFieldOptions,
                             activeSortFieldId: sortFieldOptions.find((sf) => sf.value === sortField)?.id || "card_id",
-                            onSortFieldChange: handleSortFieldChange,
+                            onSortFieldChange: setSortField,
                             defaultSortDirection: sortDirection,
-                            onSortChange: handleSortChange,
+                            onSortChange: setSortDirection,
                         }}
                     />
                 </div>
@@ -211,55 +193,6 @@ export default function Borrowers() {
                         )}
                     </CardContent>
                 </Card>
-
-                {/* Add New Borrower Modal */}
-                {openNew && (
-                <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-md space-y-4 text-gray-800">
-                    <h2 className="text-xl font-semibold">Add New Borrower</h2>
-
-                    <div className="space-y-3">
-                        {[
-                        { key: "name", label: "Name" },
-                        { key: "ssn", label: "SSN" },
-                        { key: "address", label: "Address" },
-                        { key: "phone", label: "Phone (optional)" },
-                        ].map(({ key, label }) => (
-                        <div key={key}>
-                            <label htmlFor={key} className="block text-sm text-gray-700 font-medium">
-                            {label}
-                            </label>
-                            <input
-                            id={key}
-                            name={key}
-                            value={form[key as keyof typeof form]}
-                            onChange={handleChange}
-                            placeholder={`Enter ${label.toLowerCase()}`}
-                            className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                            />
-                        </div>
-                        ))}
-                        {error && <p className="text-sm text-red-600">{error}</p>}
-                        {success && <p className="text-sm text-green-600">{success}</p>}
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-3">
-                        <button
-                        onClick={() => setOpenNew(false)}
-                        className="px-4 py-2 rounded-md text-sm bg-gray-100 hover:bg-gray-200"
-                        >
-                        Cancel
-                        </button>
-                        <button
-                        onClick={handleSubmit}
-                        className="px-4 py-2 rounded-md text-sm bg-neutral-800 text-white hover:bg-neutral-900"
-                        >
-                        Create
-                        </button>
-                    </div>
-                    </div>
-                </div>
-                )}
             </main>
         </div>
     );
