@@ -3,7 +3,7 @@
  * Based on the endpoints defined in backend/urls.py and implementations in backend/api.py.
  */
 
-let API_BASE_URL = "http://localhost:8000";
+let API_BASE_URL = "";
 
 /**
  * Sets the base URL for all API requests.
@@ -231,14 +231,58 @@ export const payBorrowerFines = (cardId: string): Promise<Loan[]> => {
     });
 };
 
-export async function updateFines(): Promise<void> {
+export async function updateFines(date?: string): Promise<void> {
+    const body = date ? JSON.stringify({ date }) : undefined;
     const res = await fetch("/api/fines/update", {
         method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
         credentials: "include",
+        body,
     });
 
     if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Failed to update fines");
     }
+}
+
+/**
+ * Send a message to the AI chat assistant
+ *
+ * @param message - The user's message to send
+ * @param history - Optional conversation history
+ * @returns The AI assistant's response
+ */
+export async function sendChatMessage(message: string, history?: ChatMessage[]): Promise<ChatResponse> {
+    console.log("[ChatAPI] Sending message:", message);
+    console.log("[ChatAPI] History:", history);
+    const response = await fetch(`${API_BASE_URL}/api/chat/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ message, history }),
+    });
+    console.log("[ChatAPI] Response status:", response.status);
+    if (!response.ok) {
+        let errorMessage = "Failed to send chat message";
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+            console.error("[ChatAPI] Error response JSON:", errorData);
+        } catch {
+            const errorText = await response.text();
+            if (errorText) {
+                errorMessage = errorText;
+            }
+            console.error("[ChatAPI] Error response text:", errorText);
+        }
+        throw new ApiError(errorMessage, response.status);
+    }
+    const data = await response.json();
+    console.log("[ChatAPI] Success response:", data);
+    return data;
 }

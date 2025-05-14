@@ -26,6 +26,7 @@ from backend.views import (
     pay_loan_fine_view,
 )
 from backend.auth_views import login_view, logout_view, unauthorized_view, current_user_view
+from backend.ai_views import chat
 
 staff_required = login_required(
     user_passes_test(lambda u: u.is_staff, login_url="/api/auth/unauthorized"), login_url="/api/auth/unauthorized"
@@ -139,4 +140,9 @@ urlpatterns = [
     #   - Description: Marks the fine for a specific loan as paid
     #   - Response: {loan object} or {"error": str}
     path("api/fines/pay/<str:loan_id>", pay_loan_fine_view, name="pay_loan_fine"),
+    # /api/chat [POST]
+    #   - Headers: Content-Type: application/json
+    #   - Body: {"message": str, "history": [{"role": str, "content": str}, ...]}
+    #   - Response: {"response": str, "history": [conversation history]}
+    path("api/chat/", login_required(chat), name="chat"),
 ]

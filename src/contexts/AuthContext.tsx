@@ -59,6 +59,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } catch (err) {
                 setUser(null);
                 setIsAuthenticated(false);
+                console.error("Error checking authentication status:", err);
             } finally {
                 setIsLoading(false);
             }
@@ -73,13 +74,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         try {
             const response = await api.login(username, password);
-
-            if (response && response.username) {
+            if (response.username) {
                 setUser({
                     username: response.username,
                 });
                 setIsAuthenticated(true);
             } else {
+                console.error("Login response did not contain username:", response);
                 throw new Error(response.message || "Login failed");
             }
         } catch (err) {

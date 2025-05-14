@@ -10,6 +10,16 @@ import { DataTable, TooltipCell, ColumnConfig } from "@/components/DataTable";
 import { toast } from "sonner";
 import { updateFines } from "@/lib/api";
 import { Link } from "react-router-dom";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 /**
  * Loans management page with search functionality and loan information
@@ -30,6 +40,10 @@ export default function Loans() {
     const loaderRef = useRef<HTMLDivElement>(null);
     const ITEMS_PER_PAGE = 20;
     const [processingLoanIds, setProcessingLoanIds] = useState<Set<string>>(new Set());
+
+    // Date picker state
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
     // Construct full search query with all parameters
     const buildSearchQuery = useCallback(
@@ -539,20 +553,9 @@ export default function Loans() {
                         <div className="flex justify-end px-4 pb-2">
                             <Button
                                 variant="default"
-                                onClick={async () => {
-                                    const hasActive = results.some(([loan]) => !loan.date_in);
-                                    if (hasActive) {
-                                        toast.error("Please check in all books before updating fines.");
-                                        return;
-                                    }
-
-                                    try {
-                                        await updateFines();
-                                        toast.success("Fines updated successfully");
-                                        executeSearch(searchQuery, 1, true);
-                                    } catch (error) {
-                                        toast.error(error instanceof Error ? error.message : "Failed to update fines");
-                                    }
+                                onClick={() => {
+                                    // Open date picker dialog
+                                    setIsDatePickerOpen(true);
                                 }}
                             >
                                 Update Fines
@@ -590,8 +593,48 @@ export default function Loans() {
                                 )}
                             </div>
                         )}
-                    </CardContent>
+                    </CardContent>{" "}
                 </Card>
+
+                {/* Date Picker Dialog */}
+                <Dialog open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Select Date for Fine Calculation</DialogTitle>
+                            <DialogDescription>Choose a date to calculate fines as of that date.</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 flex justify-center">
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={(date) => date && setSelectedDate(date)}
+                                className="rounded-md border"
+                            />
+                        </div>
+                        <DialogFooter className="sm:justify-between">
+                            <Button type="button" variant="secondary" onClick={() => setIsDatePickerOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        // Format date as YYYY-MM-DD
+                                        const formattedDate = format(selectedDate, "yyyy-MM-dd");
+                                        await updateFines(formattedDate);
+                                        toast.success("Fines updated successfully");
+                                        executeSearch(searchQuery, 1, true);
+                                        setIsDatePickerOpen(false);
+                                    } catch (error) {
+                                        toast.error(error instanceof Error ? error.message : "Failed to update fines");
+                                    }
+                                }}
+                            >
+                                Update Fines
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </main>
         </div>
     );

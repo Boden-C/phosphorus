@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { BookOpen, BookmarkCheck, Users, Calendar, LogIn, LogOut } from "lucide-react";
+import { BookOpen, BookmarkCheck, Users, Calendar, LogIn, LogOut, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginModal } from "@/components/LoginModal";
+import { ChatPopup } from "@/components/ChatPopup";
 
 export interface SidebarProps {
     /**
@@ -19,6 +20,7 @@ export interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     const { isAuthenticated, user, logout, isLoading } = useAuth();
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showChatPopup, setShowChatPopup] = useState(false);
 
     const handleAuthAction = () => {
         if (isAuthenticated) {
@@ -111,9 +113,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             </Button>
                         )}
                     </NavLink>
-                </nav>
-
-                <div className="mt-auto pt-4 border-t">
+                </nav>{" "}
+                <div className="mt-auto pt-4 border-t space-y-2">
                     {isAuthenticated && user && (
                         <div className="mb-2 text-sm text-muted-foreground flex items-center">
                             <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
@@ -140,10 +141,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                             </>
                         )}
                     </Button>
+
+                    <Button
+                        variant="secondary"
+                        className="w-full justify-start"
+                        onClick={() => setShowChatPopup(true)}
+                        disabled={!isAuthenticated}
+                    >
+                        <MessageSquare size={18} className="mr-2" />
+                        Ask Library Assistant
+                    </Button>
                 </div>
             </aside>
 
             <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+            <ChatPopup isOpen={showChatPopup} onClose={() => setShowChatPopup(false)} />
         </>
     );
 };

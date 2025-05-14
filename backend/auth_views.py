@@ -11,6 +11,7 @@ import traceback
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
+
 @login_required
 def me_view(request):
     """
@@ -18,15 +19,17 @@ def me_view(request):
     Returns basic info about the currently logged-in user.
     """
     user = request.user
-    return JsonResponse({
-        "success": True,
-        "user": {
-            "username":     user.username,
-            "is_staff":     user.is_staff,
-            "is_superuser": user.is_superuser,
-            "id":           user.id,
+    return JsonResponse(
+        {
+            "success": True,
+            "user": {
+                "username": user.username,
+                "is_staff": user.is_staff,
+                "is_superuser": user.is_superuser,
+                "id": user.id,
+            },
         }
-    })
+    )
 
 
 @csrf_exempt
@@ -56,12 +59,9 @@ def login_view(request):
                 login(request, user)
                 return JsonResponse(
                     {
-                        "success": True,
-                        "user": {
-                            "username": user.username,
-                            "is_staff": user.is_staff,
-                            "is_superuser": user.is_superuser,
-                        },
+                        "message": "Login successful",
+                        "username": user.username,
+                        "id": user.id,
                     }
                 )
             else:

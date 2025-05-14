@@ -333,28 +333,43 @@ def checkin_loan(request):
             return JsonResponse({"error": str(e)}, status=500)
     return JsonResponse({"error": "Method not allowed"}, status=405)
 
+
 @csrf_exempt
 @require_POST
 def trigger_update_fines(request):
     """Trigger fine updates for all overdue loans"""
     try:
-        api.update_fines(current_date=date.today())
+        data = {}
+        if request.body:
+            data = json.loads(request.body)
+
+        current_date = date.today()
+        if data.get("date"):
+            try:
+                current_date = date.fromisoformat(data["date"])
+            except ValueError:
+                return JsonResponse({"error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
+
+        api.update_fines(current_date=current_date)
         return JsonResponse({"message": "Fines updated successfully"})
     except Exception as e:
         log(f"Exception in trigger_update_fines: {e}\n{traceback.format_exc()}")
         return JsonResponse({"error": str(e)}, status=500)
-    
+
+
 @csrf_exempt
 @require_POST
 def pay_loan_fine_view(request, loan_id):
     """Mark a loan's fine as paid."""
     try:
         loan = api.pay_loan_fine(loan_id)
-        return JsonResponse({
-            "loan_id": loan.loan_id,
-            "paid": loan.paid,
-            "fine_amt": float(loan.fine_amt),
-        })
+        return JsonResponse(
+            {
+                "loan_id": loan.loan_id,
+                "paid": loan.paid,
+                "fine_amt": float(loan.fine_amt),
+            }
+        )
     except Exception as e:
         log(f"Exception in pay_loan_fine_view: {e}\n{traceback.format_exc()}")
         return JsonResponse({"error": str(e)}, status=500)

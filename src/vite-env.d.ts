@@ -16,6 +16,25 @@ interface UserResponse {
     email?: string;
 }
 
+// Chat message types
+interface ChatMessage {
+    role: "user" | "assistant" | "system" | "tool";
+    content: string;
+    tool_call_id?: string;
+    name?: string;
+}
+
+interface ChatRequest {
+    message: string;
+    history?: ChatMessage[];
+}
+
+interface ChatResponse {
+    response: string;
+    history: ChatMessage[];
+    error?: string;
+}
+
 // Auth context types
 interface AuthContextType {
     isAuthenticated: boolean;
