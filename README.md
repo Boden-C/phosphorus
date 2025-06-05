@@ -1,6 +1,8 @@
 # Phosphorus Library Management System
 
-Phosphorus is a Django/MySQL-based library management system for efficient staff operations, robust fine tracking, and secure user authentication. The backend provides a comprehensive API for managing books, borrowers, loans, and fines, with a focus on maintainability, data integrity, and ease of use for library staff.
+Phosphorus is a Django/MySQL-based library management system for efficient staff operations, robust fine tracking, and secure user authentication. The backend provides a comprehensive API for managing books, borrowers, loans, and fines, with a focus on maintainability, data integrity, and ease of use for library staff.  
+
+It is developer friendly with api endpoints available in JavaScript/TypeScript, Python, and HTTP.
 
 ## API Endpoints
 
